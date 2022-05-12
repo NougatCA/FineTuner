@@ -1,7 +1,8 @@
 
 import argparse
 
-from args import add_args
+from args import add_args, check_args
+from utils import get_run_name
 
 
 def main():
@@ -13,7 +14,12 @@ def main():
 
     args = parser.parse_args()
 
-    print(args.do_train)
+    # check args
+    check_args(args)
+
+    # prepare some preliminary arguments
+    if args.run_name is None:
+        args.run_name = get_run_name(args)
 
 
 if __name__ == "__main__":
