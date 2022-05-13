@@ -12,6 +12,7 @@ import numpy as np
 import configs
 from args import add_args, check_args
 from utils import get_run_name
+from run_fine_tune import run_fine_tune
 
 
 def main():
@@ -79,7 +80,7 @@ def main():
 
     # task type, model type, model name, and tokenizer name
     args.task_type = configs.TASK_NAME_TO_TYPE[args.task]
-    args.model_type, args.model_name, args.tokenizer_name = configs.MODEL_ID_TO_CLASS[args.model]
+    args.model_type, args.model_name, args.tokenizer_name = configs.MODEL_ID_TO_NAMES[args.model]
 
     # log command and configs
     logger.info("COMMAND: {}".format(" ".join(sys.argv)))
@@ -93,11 +94,6 @@ def main():
     logger.info("Configurations:\n{}".format(config_table))
 
     run_fine_tune(args)
-
-
-def run_fine_tune(args):
-
-    model, tokenizer = init_model_tokenizer(args)
 
 
 if __name__ == "__main__":

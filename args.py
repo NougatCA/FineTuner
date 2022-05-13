@@ -8,12 +8,12 @@ def add_args(parser: ArgumentParser):
 
     # model identifier
     parser.add_argument("--model", type=str, default="roberta",
-                        choices=config.MODEL_ID_TO_CLASS.keys(),
+                        choices=configs.MODEL_ID_TO_NAMES.keys(),
                         help="Model identifier.")
 
     # task, dataset and subtask
     parser.add_argument("--task", type=str, default="defect",
-                        choices=config.TASK_NAME_TO_TYPE.keys(),
+                        choices=configs.TASK_NAME_TO_TYPE.keys(),
                         help="Task name.")
     parser.add_argument("--dataset", type=str, default="",
                         help="Dataset name, leave empty for default.")
@@ -74,6 +74,8 @@ def add_args(parser: ArgumentParser):
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
     parser.add_argument("--max-data-num", type=int, default=-1,
                         help='Max number of data instances to use, -1 for full data.')
+    parser.add_argument("--train-from-scratch", action="store_true", default=False,
+                        help="Whether to fine-tune from scratch, will not load pre-trained models.")
 
     # outputs and savings
     parser.add_argument("--run-name", type=str, default=None,
@@ -184,7 +186,7 @@ def check_args(args):
     """Check if args values are valid, and conduct some default settings."""
 
     # dataset
-    dataset_list = config.TASK_TO_DATASET[args.task]
+    dataset_list = configs.TASK_TO_DATASET[args.task]
     assert len(dataset_list) != 0, f'There is no dataset configured as the dataset of `{args.task}`.'
     if args.dataset is None:
         if len(dataset_list) > 1:
@@ -198,10 +200,10 @@ def check_args(args):
 
     # subset
     if args.subtask is None:
-        assert args.dataset not in config.DATASET_TO_SUBSET, \
+        assert args.dataset not in configs.DATASET_TO_SUBSET, \
             f"Please specific a subset of dataset `{args.dataset}` when it has multiple subsets."
     else:
-        assert args.dataset in config.DATASET_TO_SUBSET, \
+        assert args.dataset in configs.DATASET_TO_SUBSET, \
             f"Dataset `{args.dataset}` has no subset."
-        assert args.subtask in config.DATASET_TO_SUBSET[args.dataset], \
+        assert args.subtask in configs.DATASET_TO_SUBSET[args.dataset], \
             f"Dataset `{args.dataset}` has not subset called `{args.subset}`"
