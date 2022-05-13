@@ -1,5 +1,4 @@
 
-
 # map the model identifier to (base model type, model path, tokenizer path)
 MODEL_ID_TO_CLASS = {
     # vanilla transformer
@@ -35,10 +34,52 @@ TASK_NAME_TO_TYPE = {
     "cosqa": "coclr",
     # sequence-to-sequence
     "translation": "seq2seq",
-    "bug": "seq2seq",
+    "fixing": "seq2seq",
     "mutant": "seq2seq",
     "assert": "seq2seq",
     "summarization": "seq2seq",
     "generation": "seq2seq",
     "completion": "generative"
+}
+
+# map the task to datasets
+TASK_TO_DATASET = {
+    "defect": ["devign"],
+    "clone": ["bigclonebench"],
+    "exception": ["exception"],
+    "retrieval": ["poj104"],
+    "search": ["advtest"],
+    "cosqa": ["cosqa"],
+    "translation": ["codetrans"],
+    "fixing": ["bfp"],
+    "completion": [],
+    "mutant": ["mutant"],
+    "assert": ["assert"],
+    "summarization": ["codesearchnet"],
+    "generation": ["concode"]
+}
+
+# map the dataset to sub-tasks
+DATASET_TO_SUBSET = {
+    "codetrans": ["java-cs", "cs-java"],
+    "bfp": ["small", "medium"],
+    "assert": ["abs", "raw"],
+    "codesearchnet": ["java", "python", "javascript", "php", "go", "ruby"]
+}
+
+# map the task to its major metric
+TASK_TO_MAJOR_METRIC = {
+    "defect": "acc",
+    "clone": "f1",
+    "exception": "acc",
+    "retrieval": "map",
+    "search": "mrr",
+    "cosqa": "acc",
+    "translation": "em",
+    "fixing": "em",
+    "completion": "",
+    "mutant": "em",
+    "assert": "em",
+    "summarization": "bleu",
+    "generation": "em"
 }

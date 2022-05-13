@@ -1,7 +1,7 @@
 
 from argparse import ArgumentParser
 
-import config
+import configs
 
 
 def add_args(parser: ArgumentParser):
@@ -17,8 +17,8 @@ def add_args(parser: ArgumentParser):
                         help="Task name.")
     parser.add_argument("--dataset", type=str, default="",
                         help="Dataset name, leave empty for default.")
-    parser.add_argument("--sub-task", type=str, default="",
-                        help="The subtask name, if any.")
+    parser.add_argument("--subset", type=str, default="",
+                        help="The subset name, if any.")
 
     # train, valid and test procedure
     parser.add_argument("--do-train", action="store_true",
@@ -29,6 +29,8 @@ def add_args(parser: ArgumentParser):
                         help="Whether to perform testing procedure.")
 
     # hyper parameters
+    parser.add_argument("--override-params", action="store_true", default=False,
+                        help="Override pre-defined task-specific hyperparameter settings.")
     parser.add_argument("--num-epochs", type=int, default=None,
                         help="Number of total training epochs.")
     parser.add_argument("--batch-size", type=int, default=None,
@@ -51,7 +53,7 @@ def add_args(parser: ArgumentParser):
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--max-grad-norm", type=float, default=1.0,
                         help="Max gradient norm.")
-    parser.add_argument("--warmup-steps", type=int, default=100,
+    parser.add_argument("--warmup-steps", type=int, default=None,
                         help="Linear warmup over warmup_steps.")
     parser.add_argument("--patience", type=int, default=None,
                         help="Early stopping patience.")
@@ -63,6 +65,9 @@ def add_args(parser: ArgumentParser):
                         help='Index (Indices) of the GPU to use in a cluster.')
     parser.add_argument("--no-cuda", action="store_true",
                         help="Disable cuda, overrides cuda-visible-devices.")
+    parser.add_argument("--mixed-precision", type=str, default="fp16",
+                        choices=["no", "fp16", "bf16"],
+                        help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
     # limitations
     parser.add_argument("--max_steps", type=int, default=-1,
@@ -75,5 +80,128 @@ def add_args(parser: ArgumentParser):
                         help="Unique name of current running, will be automatically set if it is None.")
 
 
+def set_task_hyper_parameters(args):
+
+    num_epochs = 30
+    batch_size = 64
+    max_source_length = None
+    max_target_length = None
+    learning_rate = 5e-5
+    warmup_steps = 100
+    patience = 5
+
+    if args.task == "defect":
+        num_epochs = 20
+        max_source_length = 512
+        max_target_length = 3
+        patience = 5
+
+    elif args.task == "clone":
+        num_epochs = 1
+        max_source_length = 256
+        max_target_length = 3
+        patience = 2
+
+    elif args.task == "exception":
+        num_epochs = 20
+        max_source_length = 256
+        max_target_length = 10
+        patience = 5
+
+    elif args.task == "retrieval":
+        num_epochs = 20
+        max_source_length = 512
+        max_target_length = 512
+        patience = 5
+
+    elif args.task == "search":
+        num_epochs = 20
+        max_source_length = 256
+        max_target_length = 256
+        patience = 5
+
+    elif args.task == "cosqa":
+        num_epochs = 5
+        learning_rate = 5e-6
+        warmup_steps = 500
+        max_source_length = 256
+
+    elif args.task == "translation":
+        num_epochs = 50
+        max_source_length = 384
+        max_target_length = 256
+        patience = 5
+
+    elif args.task == "fixing":
+        num_epochs = 50
+        if args.sub_task == "small":
+            max_source_length = 128
+            max_target_length = 128
+        elif args.sub_task == "medium":
+            max_source_length = 256
+            max_target_length = 256
+        patience = 5
+
+    elif args.task == "mutant":
+        num_epochs = 50
+        max_source_length = 128
+        max_target_length = 128
+        patience = 5
+
+    elif args.task == "assert":
+        num_epochs = 30
+        if args.sub_task == "abs":
+            max_source_length = 512
+            max_target_length = 64
+        elif args.sub_task == "raw":
+            max_source_length = 256
+            max_target_length = 32
+        patience = 5
+
+    elif args.task == "summarization":
+        num_epochs = 15
+        max_source_length = 256
+        max_target_length = 128
+        patience = 3
+
+    elif args.task == "generation":
+        num_epochs = 30
+        max_source_length = 256
+        max_target_length = 128
+        patience = 5
+
+    args.max_source_length = max_source_length
+    args.max_target_length = max_target_length
+    if not args.override_params:
+        args.num_epochs = num_epochs
+        args.batch_size = batch_size
+        args.learning_rate = learning_rate
+        args.warmup_steps = warmup_steps
+        args.patience = patience
+
+
 def check_args(args):
-    pass
+    """Check if args values are valid, and conduct some default settings."""
+
+    # dataset
+    dataset_list = config.TASK_TO_DATASET[args.task]
+    assert len(dataset_list) != 0, f'There is no dataset configured as the dataset of `{args.task}`.'
+    if args.dataset is None:
+        if len(dataset_list) > 1:
+            raise ValueError(f"Please specific a dataset of task `{args.task}` "
+                             f"when more than one datasets is configured.")
+        else:
+            args.dataset = dataset_list[0]
+    else:
+        assert args.dataset in dataset_list, \
+            f'Dataset `{args.dataset}` is not configured as the dataset of task `{args.task}`.'
+
+    # subset
+    if args.subtask is None:
+        assert args.dataset not in config.DATASET_TO_SUBSET, \
+            f"Please specific a subset of dataset `{args.dataset}` when it has multiple subsets."
+    else:
+        assert args.dataset in config.DATASET_TO_SUBSET, \
+            f"Dataset `{args.dataset}` has no subset."
+        assert args.subtask in config.DATASET_TO_SUBSET[args.dataset], \
+            f"Dataset `{args.dataset}` has not subset called `{args.subset}`"
