@@ -19,7 +19,7 @@ def add_args(parser: ArgumentParser):
                         help="Dataset name, leave empty for default.")
     parser.add_argument("--subset", type=str, default="",
                         help="The subset name, if any.")
-    parser.add_argument("--data-dir", type=str, default="./data",
+    parser.add_argument("--data-dir", type=str, default="./datasets",
                         help="The directory to store datasets.")
 
     # train, valid and test procedure

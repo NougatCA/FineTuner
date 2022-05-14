@@ -18,6 +18,14 @@ class ClassificationExample:
 class RetrievalExample:
     """Raw example of retrieval tasks."""
     idx: str
+    source: str
+    label: str
+
+
+@dataclass
+class SearchExample:
+    """Raw example for search tasks."""
+    idx: str
     query: str
     match: str = None
 
@@ -91,7 +99,7 @@ def load_examples(args, split, aux_data=None):
         assert aux_data     # a list of all types
         with open(os.path.join(data_dir, f"{split}.jsonl"), mode="r", encoding="utf-8") as f:
             lines = f.readlines()
-            for idx, line in enumerate(tqdm(lines, total=len(lines), desc=f"loading {split} set")):
+            for idx, line in enumerate(tqdm(lines, total=len(lines), desc=f"Loading {split} set")):
                 js = json.loads(line.strip())
                 code = " ".join(js["function"].split())
                 target_txt = js["label"].lower()
@@ -99,4 +107,17 @@ def load_examples(args, split, aux_data=None):
                                                       source=code,
                                                       label=aux_data.index(target_txt)))
 
-    elif
+    elif args.task == "retrieval":
+        assert split in ["train", "valid", "test"]
+        with open(os.path.join(data_dir, f"{split}.jsonl"), mode="r", encoding="utf-8") as f:
+            lines = f.readlines()
+            for line in tqdm(lines, total=len(lines), desc=f"Loading {split} set"):
+                line = line.strip()
+                js = json.loads(line)
+                code = " ".join(js["code"].split())
+                examples.append(RetrievalExample(idx=js["index"],
+                                                 source=code,
+                                                 label=js["label"]))
+
+    elif args.task == "search":
+        pass
