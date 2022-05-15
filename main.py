@@ -96,6 +96,8 @@ def main():
 
     # init wandb
     args.run = wandb.init()
+    if args.wandb_offline:
+        pass
 
     run_fine_tune(args)
 
