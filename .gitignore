@@ -132,4 +132,5 @@ data/
 datasets/
 outputs/
 .idea/
+wandb_api.key
 sample.py

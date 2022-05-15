@@ -5,6 +5,11 @@ def get_run_name(args):
     return "_".join([token for token in tokens if token is not None or token != ""])
 
 
+def get_short_run_name(args):
+    tokens = [args.model, args.task, args.dataset, args.sub_task]
+    return "_".join([token for token in tokens if token is not None or token != ""])
+
+
 def human_format(num):
     """Transfer count number."""
     num = float('{:.3g}'.format(num))

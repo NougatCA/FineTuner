@@ -12,7 +12,7 @@ import wandb
 
 import configs
 from args import add_args, check_args
-from utils import get_run_name
+from utils import get_run_name, get_short_run_name
 from run_fine_tune import run_fine_tune
 
 
@@ -31,6 +31,7 @@ def main():
     # prepare some preliminary arguments
     if args.run_name is None:
         args.run_name = get_run_name(args)
+        args.short_run_name = get_short_run_name(args)
     args.run_name = "{}_{}".format(args.run_name, time.strftime("%Y%m%d_%H%M%S", time.localtime()))
 
     # outputs and savings
@@ -95,9 +96,15 @@ def main():
     logger.info("Configurations:\n{}".format(config_table))
 
     # init wandb
-    args.run = wandb.init()
-    if args.wandb_offline:
-        pass
+    with open("./wandb_api.key", mode="r", encoding="utf-8") as f:
+        os.environ["WANDB_API_KEY"] = f.read().strip()
+    args.run = wandb.init(project="CodePTM Evaluation",
+                          tags=[token for token in
+                                [args.model_type, args.model, args.task_type, args.task, args.dataset, args.sub_task]
+                                if token is not None or token != ""],
+                          name=args.short_run_name,
+                          mode="offline" if args.wandb_offline else "online",
+                          config=vars(args))
 
     run_fine_tune(args)
 
