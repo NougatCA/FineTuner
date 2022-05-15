@@ -8,6 +8,7 @@ from prettytable import PrettyTable
 from accelerate import Accelerator
 import random
 import numpy as np
+import wandb
 
 import configs
 from args import add_args, check_args
@@ -92,6 +93,9 @@ def main():
     for config, value in vars(args).items():
         config_table.add_row([config, str(value)])
     logger.info("Configurations:\n{}".format(config_table))
+
+    # init wandb
+    args.run = wandb.init()
 
     run_fine_tune(args)
 
