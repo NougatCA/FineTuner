@@ -59,12 +59,12 @@ class Seq2SeqExample:
 
 
 def load_aux_data(args):
-
+    """Loads auxiliary datafile besides the train/valid/test data file."""
     data_dir = os.path.join(args.data_dir, args.task, args.dataset)
     if args.subset:
         data_dir = os.path.join(args.data_dir, args.subset)
 
-    # bigclonebench
+    # BigCloneBench
     if args.task == "clone":
         if args.dataset == "bigclonebench":
             idx_to_code = {}
@@ -84,6 +84,7 @@ def load_aux_data(args):
 
 
 def load_examples(args, split, aux_data=None):
+    """Loads raw examples from the train/valid/test file."""
     assert split in ["train", "valid", "test"]
 
     data_dir = os.path.join(args.data_dir, args.task, args.dataset)
@@ -223,6 +224,7 @@ def load_examples(args, split, aux_data=None):
                                            target=target))
     logger.info(f"{split} data loaded, total size: {len(examples)}")
 
+    # sample specific number/ratio of examples if needed
     if args.training_sample > 0:
         if args.training_sample < 1:
             num_to_sample = int(len(examples) * args.training_sample)
@@ -268,9 +270,10 @@ def encode_casual_example(example):
     pass
 
 
-def multiprocess_encoding(encode_func, examples, num_processors=None):
+def multiprocess_encoding(encode_func, examples, num_processors=None, single_thread=False):
+    """Encodes examples to input features using multiprocessing."""
     processes = num_processors if num_processors else multiprocessing.cpu_count()
-    if processes > 1:
+    if processes > 1 and not single_thread:
         with multiprocessing.Pool(processes=processes) as p:
             features = list(tqdm(p.imap(encode_func, examples), total=len(examples), desc="Encoding"))
     else:
@@ -279,6 +282,7 @@ def multiprocess_encoding(encode_func, examples, num_processors=None):
 
 
 def create_dataset(args, examples, tokenizer, split):
+    """Create dataset by converting examples to input features."""
 
     logger.info(f"Start encoding {split} data into input features")
 
