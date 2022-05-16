@@ -1,9 +1,15 @@
 
+import logging
+
 from models import init_model_tokenizer
 from data import load_examples, load_aux_data, create_dataset
 
+logger = logging.getLogger(__name__)
+
 
 def run_fine_tune(args):
+
+    logger.info("=" * 20 + "LOADING" + "=" * 20)
 
     model, tokenizer = init_model_tokenizer(args)
 

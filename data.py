@@ -1,10 +1,14 @@
-
+from torch.utils.data.dataset import TensorDataset
 import logging
 import os
 import random
 from dataclasses import dataclass
 import json
+from functools import partial
+
+import torch
 from tqdm import tqdm
+import multiprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +89,8 @@ def load_examples(args, split, aux_data=None):
     data_dir = os.path.join(args.data_dir, args.task, args.dataset)
     if args.subset and args.task != "translation":
         data_dir = os.path.join(args.data_dir, args.subset)
+
+    logger.info(f"Start loading {split} data from {data_dir}")
 
     examples = []
     if args.task == "defect":
@@ -228,11 +234,17 @@ def load_examples(args, split, aux_data=None):
     return examples
 
 
+@dataclass
+class ClassificationInputFeature:
+    input_ids: list
+    label: int
+
+
 def get_model_input_ids(args, source, source_pair=None):
     pass
 
 
-def encode_classification_examples(example):
+def encode_classification_examples(example, args, tokenizer, split):
     pass
 
 
@@ -248,7 +260,7 @@ def encode_cosqa_example(example):
     pass
 
 
-def encode_seq2seq_example(example):
+def encode_seq2seq_example(example, args, tokenizer, split):
     pass
 
 
@@ -256,11 +268,29 @@ def encode_casual_example(example):
     pass
 
 
+def multiprocess_encoding(encode_func, examples, num_processors=None):
+    processes = num_processors if num_processors else multiprocessing.cpu_count()
+    if processes > 1:
+        with multiprocessing.Pool(processes=processes) as p:
+            features = list(tqdm(p.imap(encode_func, examples), total=len(examples), desc="Encoding"))
+    else:
+        features = [encode_func(example) for example in tqdm(examples, total=len(examples), desc="Encoding")]
+    return features
+
+
 def create_dataset(args, examples, tokenizer, split):
 
+    logger.info(f"Start encoding {split} data into input features")
 
     if args.task in ["defect", "clone", "exception"]:
-        pass
+        encode_func = partial(encode_classification_examples, args=args, tokenizer=tokenizer, split=split)
+        features = multiprocess_encoding(encode_func, examples)
+        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+        if split != "test":
+            all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
+            return TensorDataset(all_input_ids, all_labels)
+        else:
+            return TensorDataset(all_input_ids)
 
     elif args.task == "retrieval":
         pass
@@ -272,7 +302,14 @@ def create_dataset(args, examples, tokenizer, split):
         pass
 
     elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
-        pass
+        encode_func = partial(encode_seq2seq_example, args=args, tokenizer=tokenizer, split=split)
+        features = multiprocess_encoding(encode_func, examples)
+        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+        if split != "test":
+            all_decoder_input_ids = torch.tensor([f.decoder_input_ids for f in features])
+            return TensorDataset(all_input_ids, all_decoder_input_ids)
+        else:
+            return TensorDataset(all_input_ids)
 
     elif args.task == "completion":
         pass
