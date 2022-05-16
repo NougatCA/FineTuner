@@ -252,8 +252,27 @@ def encode_seq2seq_example(example):
     pass
 
 
+def encode_casual_example(example):
+    pass
+
+
 def create_dataset(args, examples, tokenizer, split):
 
 
     if args.task in ["defect", "clone", "exception"]:
+        pass
+
+    elif args.task == "retrieval":
+        pass
+
+    elif args.task == "search":
+        pass
+
+    elif args.task == "cosqa":
+        pass
+
+    elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
+        pass
+
+    elif args.task == "completion":
         pass
