@@ -4,3 +4,4 @@ accelerate
 transformers
 tqdm
 wandb
+torch

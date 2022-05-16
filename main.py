@@ -81,7 +81,6 @@ def main():
         torch.cuda.manual_seed_all(args.random_seed)
 
     # task type, model type, model name, and tokenizer name
-    args.task_type = configs.TASK_NAME_TO_TYPE[args.task]
     args.model_type, args.model_name, args.tokenizer_name = configs.MODEL_ID_TO_NAMES[args.model]
 
     # log command and configs
