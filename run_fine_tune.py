@@ -1,14 +1,27 @@
+import torch
 from torch.optim import AdamW
 from transformers import get_scheduler
 import logging
 import math
 from tqdm import tqdm
-import time
 
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
+import configs
 
 logger = logging.getLogger(__name__)
+
+
+def run_eval(args, model, tokenizer, dataloader, is_test=False):
+
+    model.eval()
+
+    eval_bar = tqdm(dataloader, total=len(dataloader), desc="Testing" if is_test else "Validating")
+    for step, batch in enumerate(eval_bar):
+        model_kwargs = prepare_model_kwargs(args, batch)
+        if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+            loss, logits = model()
+
 
 
 def run_fine_tune(args):
@@ -16,6 +29,9 @@ def run_fine_tune(args):
     logger.info("=" * 20 + " LOADING " + "=" * 20)
 
     model, tokenizer = build_model_tokenizer(args)
+
+    # watch model
+    args.run.watch(model, log_freq=10)
 
     # prepare data for training and validation
     if args.do_train:
@@ -72,13 +88,13 @@ def run_fine_tune(args):
         logger.info(f"  Total optimization steps = {args.max_train_steps}")
 
         # Only show the progress bar once on each machine.
-        progress_bar = tqdm(range(args.max_train_steps))
         completed_steps = 0
 
         for epoch in range(args.num_train_epochs):
             model.train()
 
-            for step, batch in enumerate(train_dataloader):
+            train_bar = tqdm(train_dataloader, total=len(train_dataloader), desc=f"[epoch {epoch}, loss x.xxxx]")
+            for step, batch in enumerate(train_bar):
                 model_kwargs = prepare_model_kwargs(args, batch)
                 outputs = model(**model_kwargs)
 
@@ -86,19 +102,22 @@ def run_fine_tune(args):
                 loss = loss / args.gradient_accumulation_steps
                 args.accelerator.backward(loss)
 
+                train_bar.set_description(f"[epoch {epoch}, loss {loss.item():.4f}]")
                 args.run.log({"train_loss": loss.item()})
 
                 if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad()
-                    progress_bar.update(1)
                     completed_steps += 1
 
                 if completed_steps >= args.max_train_steps:
                     break
 
             if args.do_valid:
-                model.eval()
+
+
+
+
 
 

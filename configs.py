@@ -29,6 +29,12 @@ from transformers import \
 #     "completion": "casual"
 # }
 
+# map the task type to task name
+TASK_TYPE_TO_LIST = {
+    "classification": ["defect", "clone", "exception"],
+    "seq2seq": ["translation", "fixing", "mutant", "assert", "summarization", "translation"]
+}
+
 # map the task to datasets
 TASK_TO_DATASET = {
     "defect": ["devign"],

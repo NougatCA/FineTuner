@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data.dataset import Dataset, TensorDataset
 from torch.utils.data.dataloader import DataLoader
 import logging
@@ -7,10 +8,10 @@ from dataclasses import dataclass
 import json
 from functools import partial
 from typing import List, Union, Tuple
-
-import torch
 from tqdm import tqdm
 import multiprocessing
+
+import configs
 
 logger = logging.getLogger(__name__)
 
@@ -397,7 +398,7 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
     logger.info(f"Start encoding {split} data into input features")
 
     dataset = None
-    if args.task in ["defect", "clone", "exception"]:
+    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -436,7 +437,7 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
         all_labels = torch.tensor(all_labels, dtype=torch.long)
         dataset = TensorDataset(all_code_ids, all_nl_ids, all_labels)
 
-    elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
+    elif args.task in configs.TASK_TYPE_TO_LIST["seq2seq"]:
         encode_func = partial(encode_seq2seq_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids, all_decoder_input_ids = [], []

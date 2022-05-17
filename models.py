@@ -209,7 +209,7 @@ def build_model_tokenizer(args):
 
     # wrap model
     # build seq2seq model for bert/roberta
-    if args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"] and \
+    if args.task in configs.TASK_TYPE_TO_LIST["seq2seq"] and \
             args.model_type in ["bert", "roberta"]:
         logger.info(f"Trainable parameters: {human_format(count_params(model))}")
         seq2seq_config = EncoderDecoderConfig.from_encoder_decoder_configs(config, config)
@@ -234,7 +234,7 @@ def prepare_model_kwargs(args, batch):
 
     model_kwargs = {}
 
-    if args.task in ["defect", "clone", "exception"]:
+    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         model_kwargs["input_ids"] = batch[0]
         model_kwargs["labels"] = batch[1]
 
@@ -253,7 +253,7 @@ def prepare_model_kwargs(args, batch):
         model_kwargs["nl_input_ids"] = batch[1]
         model_kwargs["labels"] = batch[2]
 
-    elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
+    elif args.task in configs.TASK_TYPE_TO_LIST["seq2seq"]:
         model_kwargs["input_ids"] = batch[0]
         model_kwargs["labels"] = batch[1]
 
