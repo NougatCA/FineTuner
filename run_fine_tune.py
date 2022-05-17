@@ -3,8 +3,9 @@ from transformers import get_scheduler
 import logging
 import math
 from tqdm import tqdm
+import time
 
-from models import build_model_tokenizer
+from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
 
 logger = logging.getLogger(__name__)
@@ -76,11 +77,17 @@ def run_fine_tune(args):
 
         for epoch in range(args.num_train_epochs):
             model.train()
+
             for step, batch in enumerate(train_dataloader):
-                outputs = model(**batch)
+                model_kwargs = prepare_model_kwargs(args, batch)
+                outputs = model(**model_kwargs)
+
                 loss = outputs.loss
                 loss = loss / args.gradient_accumulation_steps
                 args.accelerator.backward(loss)
+
+                args.run.log({"train_loss": loss.item()})
+
                 if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                     optimizer.step()
                     lr_scheduler.step()
@@ -92,4 +99,6 @@ def run_fine_tune(args):
                     break
 
             if args.do_valid:
-                pass
+                model.eval()
+
+

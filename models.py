@@ -26,8 +26,8 @@ def get_representation_vector(args, model: torch.nn.Module, input_dict: dict, eo
         seq_lens = torch.ne(input_dict["input_ids"], 0).sum(-1) - 1
         batch_size = input_dict["input_ids"].size(0)
         return outputs[0][torch.arange(batch_size), seq_lens, :]
-    elif args.model_type in ["bart", "plbart"]:
-        assert isinstance(model, BartModel) or isinstance(model, PLBartModel)
+    elif args.model_type in ["bart", "plbart", "t5", "codet5"]:
+        assert isinstance(model, BartModel) or isinstance(model, PLBartModel) or isinstance(model, T5Model)
         outputs = model(**input_dict)
         hidden_states = outputs[0]  # last hidden state
         eos_mask = input_dict["input_ids"].eq(eos_token_id)
@@ -37,9 +37,8 @@ def get_representation_vector(args, model: torch.nn.Module, input_dict: dict, eo
                                   :, -1, :
                                   ]
         return sentence_representation
-    elif args.model_type in ["t5", "codet5"]:
-        assert isinstance(model, T5Model)
-        outputs = model(**input_dict)
+    else:
+        raise ValueError(f"Model type {args.model_type} not supported.")
 
 
 def prepare_input_dict_for_representation(input_ids: torch.Tensor, model_type, pad_token_id: int):
@@ -229,3 +228,37 @@ def build_model_tokenizer(args):
     logger.info(f"Trainable parameters: {human_format(count_params(model))}")
 
     return model, tokenizer
+
+
+def prepare_model_kwargs(args, batch):
+
+    model_kwargs = {}
+
+    if args.task in ["defect", "clone", "exception"]:
+        model_kwargs["input_ids"] = batch[0]
+        model_kwargs["labels"] = batch[1]
+
+    elif args.task == "retrieval":
+        model_kwargs["input_ids"] = batch[0]
+        model_kwargs["pos_input_ids"] = batch[1]
+        model_kwargs["neg_input_ids"] = batch[2]
+        model_kwargs["labels"] = batch[3]
+
+    elif args.task == "search":
+        model_kwargs["code_input_ids"] = batch[0]
+        model_kwargs["nl_input_ids"] = batch[1]
+
+    elif args.task == "cosqa":
+        model_kwargs["code_input_ids"] = batch[0]
+        model_kwargs["nl_input_ids"] = batch[1]
+        model_kwargs["labels"] = batch[2]
+
+    elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
+        model_kwargs["input_ids"] = batch[0]
+        model_kwargs["labels"] = batch[1]
+
+    elif args.task == "completion":
+        pass
+
+    return model_kwargs
+
