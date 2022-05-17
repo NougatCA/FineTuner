@@ -402,11 +402,8 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
         encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-        if split != "test":
-            all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
-            dataset = TensorDataset(all_input_ids, all_labels)
-        else:
-            dataset = TensorDataset(all_input_ids)
+        all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
+        dataset = TensorDataset(all_input_ids, all_labels)
 
     elif args.task == "retrieval":
         encode_func = partial(encode_retrieval_example, args=args, tokenizer=tokenizer, split=split)
@@ -465,7 +462,7 @@ def prepare_data(args, split, tokenizer) -> Tuple[List, Dataset, DataLoader]:
     examples = load_examples(args, split=split, aux_data=aux_data)
     dataset = create_dataset(args, examples=examples, tokenizer=tokenizer, split=split)
     dataloader = DataLoader(dataset,
-                            shuffle=False if split == "test" else True,
+                            shuffle=True if split == "train" else False,
                             batch_size=args.train_batch_size if split == "train" else args.eval_batch_size,
                             num_workers=4,
                             pin_memory=True)

@@ -84,7 +84,7 @@ def main():
     args.model_type, args.model_name, args.tokenizer_name = configs.MODEL_ID_TO_NAMES[args.model]
 
     # log command and configs
-    logger.warning("COMMAND: {}".format(" ".join(sys.argv)))
+    logger.debug("COMMAND: {}".format(" ".join(sys.argv)))
 
     config_table = PrettyTable()
     config_table.field_names = ["Configuration", "Value"]
@@ -92,7 +92,7 @@ def main():
     config_table.align["Value"] = "l"
     for config, value in vars(args).items():
         config_table.add_row([config, str(value)])
-    logger.warning("Configurations:\n{}".format(config_table))
+    logger.debug("Configurations:\n{}".format(config_table))
 
     # init wandb
     with open("../wandb_api.key", mode="r", encoding="utf-8") as f:

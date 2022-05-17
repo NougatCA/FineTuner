@@ -4,6 +4,7 @@ from transformers import get_scheduler
 import logging
 import math
 from tqdm import tqdm
+import numpy as np
 
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
@@ -12,17 +13,27 @@ import configs
 logger = logging.getLogger(__name__)
 
 
-def run_eval(args, model, tokenizer, dataloader, is_test=False):
+def run_eval(args, model, tokenizer, dataloader, split):
+    assert split in ["valid", "test"]
 
     model.eval()
 
-    eval_bar = tqdm(dataloader, total=len(dataloader), desc="Testing" if is_test else "Validating")
-    for step, batch in enumerate(eval_bar):
-        model_kwargs = prepare_model_kwargs(args, batch)
-        if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
-            loss, logits = model()
+    results = {}
 
+    eval_bar = tqdm(dataloader, total=len(dataloader), desc="Validating" if split == "valid" else "Testing")
 
+    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+        preds = []
+        all_labels = []
+        loss_list = []
+        for step, batch in enumerate(eval_bar):
+            input_ids, labels = batch[0], batch[1]
+            outputs = model(input_ids, labels=labels)
+            loss = outputs.loss.item()
+            loss_list.append(loss)
+            preds.extend(np.argmax(outputs.logits.cpu().numpy(), axis=1))
+            all_labels.extend(labels.cpu().numpy())
+        results[f"{split}_loss"] = np.mean(loss_list)
 
 def run_fine_tune(args):
 
@@ -103,7 +114,7 @@ def run_fine_tune(args):
                 args.accelerator.backward(loss)
 
                 train_bar.set_description(f"[epoch {epoch}, loss {loss.item():.4f}]")
-                args.run.log({"train_loss": loss.item()})
+                args.run.log({"train_loss": loss.item(), "epoch": epoch})
 
                 if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                     optimizer.step()
