@@ -1,11 +1,12 @@
 from torch.utils.data.dataset import Dataset, TensorDataset
+from torch.utils.data.dataloader import DataLoader
 import logging
 import os
 import random
 from dataclasses import dataclass
 import json
 from functools import partial
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import torch
 from tqdm import tqdm
@@ -395,20 +396,21 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
 
     logger.info(f"Start encoding {split} data into input features")
 
+    dataset = None
     if args.task in ["defect", "clone", "exception"]:
         encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         if split != "test":
             all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
-            return TensorDataset(all_input_ids, all_labels)
+            dataset = TensorDataset(all_input_ids, all_labels)
         else:
-            return TensorDataset(all_input_ids)
+            dataset = TensorDataset(all_input_ids)
 
     elif args.task == "retrieval":
         encode_func = partial(encode_retrieval_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
-        return RetrievalDataset(features)
+        dataset = RetrievalDataset(features)
 
     elif args.task == "search":
         encode_func = partial(encode_search_example, args=args, tokenizer=tokenizer, split=split)
@@ -419,7 +421,7 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
             all_nl_ids.append(f.nl_input_ids)
         all_code_ids = torch.tensor(all_code_ids, dtype=torch.long)
         all_nl_ids = torch.tensor(all_nl_ids, dtype=torch.long)
-        return TensorDataset(all_code_ids, all_nl_ids)
+        dataset = TensorDataset(all_code_ids, all_nl_ids)
 
     elif args.task == "cosqa":
         encode_func = partial(encode_cosqa_example, args, tokenizer=tokenizer, split=split)
@@ -432,7 +434,7 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
         all_code_ids = torch.tensor(all_code_ids, dtype=torch.long)
         all_nl_ids = torch.tensor(all_nl_ids, dtype=torch.long)
         all_labels = torch.tensor(all_labels, dtype=torch.long)
-        return TensorDataset(all_code_ids, all_nl_ids, all_labels)
+        dataset = TensorDataset(all_code_ids, all_nl_ids, all_labels)
 
     elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
         encode_func = partial(encode_seq2seq_example, args=args, tokenizer=tokenizer, split=split)
@@ -443,10 +445,28 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
             all_decoder_input_ids.append(f.decoder_input_ids)
         all_input_ids = torch.tensor(all_input_ids, dtype=torch.long)
         all_decoder_input_ids = torch.tensor(all_decoder_input_ids, dtype=torch.long)
-        return TensorDataset(all_input_ids, all_decoder_input_ids)
+        dataset = TensorDataset(all_input_ids, all_decoder_input_ids)
 
     elif args.task == "completion":
-        return None
+        dataset = None
 
-    else:
-        return None
+    logger.info(f"{split} data encoded, total size: {len(dataset)}")
+
+    return dataset
+
+
+def prepare_data(args, split, tokenizer) -> Tuple[List, Dataset, DataLoader]:
+    """Prepares data-related instances, such as raw examples, dataset and dataloader."""
+    aux_data = None
+    if args.task in ["exception"] or args.dataset in ["bigclonebench"]:
+        aux_data = load_aux_data(args)
+
+    examples = load_examples(args, split=split, aux_data=aux_data)
+    dataset = create_dataset(args, examples=examples, tokenizer=tokenizer, split=split)
+    dataloader = DataLoader(dataset,
+                            shuffle=False if split == "test" else True,
+                            batch_size=args.train_batch_size if split == "train" else args.eval_batch_size,
+                            num_workers=4,
+                            pin_memory=True)
+
+    return examples, dataset, dataloader

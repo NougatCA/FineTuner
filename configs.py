@@ -114,6 +114,5 @@ MODEL_TYPE_TO_CLASS = {
         "codet5": T5ForConditionalGeneration
     },
     "casual": {
-
     }
 }

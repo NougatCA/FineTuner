@@ -1,4 +1,4 @@
-
+from transformers import SchedulerType
 from argparse import ArgumentParser
 
 import configs
@@ -35,8 +35,10 @@ def add_args(parser: ArgumentParser):
                         help="Override pre-defined task-specific hyperparameter settings.")
     parser.add_argument("--num-epochs", type=int, default=None,
                         help="Number of total training epochs.")
-    parser.add_argument("--batch-size", type=int, default=None,
-                        help="Size of mini-batch, per device.")
+    parser.add_argument("--train-batch-size", type=int, default=None,
+                        help="Size of training batch, per device.")
+    parser.add_argument("--eval-batch-size", type=int, default=None,
+                        help="Size of validation/testing batch, per device.")
     parser.add_argument("--max-source-length", type=int, default=None,
                         help="The maximum total source sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
@@ -58,12 +60,16 @@ def add_args(parser: ArgumentParser):
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--max-grad-norm", type=float, default=1.0,
                         help="Max gradient norm.")
-    parser.add_argument("--warmup-steps", type=int, default=None,
+    parser.add_argument("--num-warmup-steps", type=int, default=None,
                         help="Linear warmup over warmup_steps.")
     parser.add_argument("--patience", type=int, default=None,
                         help="Early stopping patience.")
     parser.add_argument("--random-seed", type=int, default=42,
                         help="Random seed, -1 to disable.")
+    parser.add_argument("--lr-scheduler-type", type=SchedulerType, default="linear",
+                        help="The scheduler type to use.",
+                        choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
+                                 "constant", "constant_with_warmup"])
 
     # environment
     parser.add_argument("--cuda-visible-devices", type=str, default=None,
@@ -75,7 +81,7 @@ def add_args(parser: ArgumentParser):
                         help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
     # limitations
-    parser.add_argument("--max_steps", type=int, default=-1,
+    parser.add_argument("--max-train-steps", type=int, default=-1,
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
     parser.add_argument("--max-data-num", type=int, default=-1,
                         help='Max number of data instances to use, -1 for full data.')
@@ -95,7 +101,8 @@ def add_args(parser: ArgumentParser):
 def set_task_hyper_parameters(args):
 
     num_epochs = 30
-    batch_size = 64
+    train_batch_size = 32
+    eval_batch_size = 32
     max_source_length = None
     max_source_pair_length = None
     max_target_length = None
@@ -189,7 +196,8 @@ def set_task_hyper_parameters(args):
     args.max_target_length = max_target_length
     if not args.override_params:
         args.num_epochs = num_epochs
-        args.batch_size = batch_size
+        args.train_batch_size = train_batch_size
+        args.eval_batch_size = eval_batch_size
         args.learning_rate = learning_rate
         args.warmup_steps = warmup_steps
         args.patience = patience
