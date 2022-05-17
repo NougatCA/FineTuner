@@ -1,10 +1,11 @@
-from torch.utils.data.dataset import TensorDataset
+from torch.utils.data.dataset import Dataset, TensorDataset
 import logging
 import os
 import random
 from dataclasses import dataclass
 import json
 from functools import partial
+from typing import List, Union
 
 import torch
 from tqdm import tqdm
@@ -35,9 +36,9 @@ class RetrievalExample:
 class SearchExample:
     """Raw example for search tasks."""
     idx: str
-    query: str = None
     url: str = None
     code: str = None
+    nl: str = None
 
 
 @dataclass
@@ -83,7 +84,7 @@ def load_aux_data(args):
     return None
 
 
-def load_examples(args, split, aux_data=None):
+def load_examples(args, split, aux_data=None) -> List:
     """Loads raw examples from the train/valid/test file."""
     assert split in ["train", "valid", "test"]
 
@@ -150,7 +151,7 @@ def load_examples(args, split, aux_data=None):
                 source = ' '.join(js['function_tokens'])
             doc = ' '.join(js['docstring_tokens'])
             examples.append(SearchExample(idx=js["idx"],
-                                          query=doc,
+                                          nl=doc,
                                           code=source,
                                           url=js["url"]))
 
@@ -238,39 +239,147 @@ def load_examples(args, split, aux_data=None):
 
 @dataclass
 class ClassificationInputFeature:
-    input_ids: list
+    input_ids: List[int]
+    label: int = None
+
+
+@dataclass
+class Seq2SeqInputFeature:
+    input_ids: List[int]
+    decoder_input_ids: list = None
+
+
+@dataclass
+class RetrievalInputFeature:
+    input_ids: List[int]
+    idx: int
     label: int
 
 
-def get_model_input_ids(args, source, source_pair=None):
-    pass
+@dataclass
+class SearchInputFeature:
+    code_ids: List[int]
+    nl_ids: List[int]
+    url: str
+    idx: str
 
 
-def encode_classification_examples(example, args, tokenizer, split):
-    pass
+@dataclass
+class CoSQAInputFeature:
+    code_ids: List[int]
+    nl_ids: List[int]
+    idx: str
+    label: int
 
 
-def encode_retrieval_examples(example):
-    pass
+class RetrievalDataset(Dataset):
+
+    def __init__(self, features):
+        self.features = features
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, i):
+        label = self.features[i].label
+        idx = self.features[i].idx
+
+        pos_feature = None
+        neg_feature = None
+        while True:
+            random_feature = random.sample(self.features, 1)[0]
+            if pos_feature is None and random_feature.idx == idx:
+                pos_feature = random_feature
+            if neg_feature is None and random_feature.idx != idx:
+                neg_feature = random_feature
+            if pos_feature is not None and neg_feature is not None:
+                break
+
+        return torch.tensor(self.features[i].input_ids), torch.tensor(pos_feature.input_ids), \
+            torch.tensor(neg_feature.input_ids), torch.tensor(label)
 
 
-def encode_search_examples(example):
-    pass
+def remove_special_tokens(s, tokenizer) -> str:
+    """Removes all special tokens from given str."""
+    for token in tokenizer.all_special_tokens:
+        s = s.replace(token, " ")
+    return s
 
 
-def encode_cosqa_example(example):
-    pass
+def build_model_input_ids(args, source, tokenizer):
+    """Builds model-specific input."""
+    source = remove_special_tokens(source, tokenizer)
+    return tokenizer.encode(source, padding="max_length", max_length=args.max_source_length, truncation=True)
 
 
-def encode_seq2seq_example(example, args, tokenizer, split):
-    pass
+def convert_code_to_input_ids(args, tokenizer, source, source_pair=None) -> List[int]:
+    """Converts code to input ids, only for code."""
+    input_ids = build_model_input_ids(args, source=source, tokenizer=tokenizer)
+    if source_pair:
+        input_pair_ids = remove_special_tokens(source_pair, tokenizer)
+        input_ids += input_pair_ids
+    return input_ids
+
+
+def encode_classification_example(example: ClassificationExample, args, tokenizer, split) -> ClassificationInputFeature:
+    input_ids = convert_code_to_input_ids(args,
+                                          tokenizer=tokenizer,
+                                          source=example.source,
+                                          source_pair=example.source_pair)
+    return ClassificationInputFeature(input_ids=input_ids, label=example.label if split != "test" else None)
+
+
+def encode_retrieval_example(example: RetrievalExample, args, tokenizer, split) -> RetrievalInputFeature:
+    input_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.source)
+    return RetrievalInputFeature(input_ids=input_ids,
+                                 idx=int(example.idx),
+                                 label=int(example.label))
+
+
+def encode_search_example(example: SearchExample, args, tokenizer, split) -> SearchInputFeature:
+    code_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.code)
+    nl_ids = tokenizer.encode(example.nl,
+                              padding="max_length",
+                              max_length=args.max_source_length,
+                              truncation=True)
+    return SearchInputFeature(code_ids=code_ids,
+                              nl_ids=nl_ids,
+                              url=example.url,
+                              idx=example.idx)
+
+
+def encode_cosqa_example(example: CoSQAExample, args, tokenizer, split) -> CoSQAInputFeature:
+    code_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.code)
+    nl_ids = tokenizer.encode(example.nl,
+                              padding="max_length",
+                              max_length=args.max_source_length,
+                              truncation=True)
+    return CoSQAInputFeature(code_ids=code_ids,
+                             nl_ids=nl_ids,
+                             label=example.label,
+                             idx=example.idx)
+
+
+def encode_seq2seq_example(example: Seq2SeqExample, args, tokenizer, split) -> Seq2SeqInputFeature:
+    if args.task in ["generation"]:
+        input_ids = tokenizer.encode(example.source,
+                                     padding="max_length",
+                                     max_length=args.max_source_length,
+                                     truncation=True)
+    else:
+        input_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.source)
+    decoder_input_ids = tokenizer.encode(example.target,
+                                         padding="max_length",
+                                         max_length=args.max_target_length,
+                                         truncation=True)
+    return Seq2SeqInputFeature(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
 
 
 def encode_casual_example(example):
     pass
 
 
-def multiprocess_encoding(encode_func, examples, num_processors=None, single_thread=False):
+def multiprocess_encoding(encode_func, examples, num_processors=None, single_thread=False) -> List:
     """Encodes examples to input features using multiprocessing."""
     processes = num_processors if num_processors else multiprocessing.cpu_count()
     if processes > 1 and not single_thread:
@@ -281,13 +390,13 @@ def multiprocess_encoding(encode_func, examples, num_processors=None, single_thr
     return features
 
 
-def create_dataset(args, examples, tokenizer, split):
+def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
     """Create dataset by converting examples to input features."""
 
     logger.info(f"Start encoding {split} data into input features")
 
     if args.task in ["defect", "clone", "exception"]:
-        encode_func = partial(encode_classification_examples, args=args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         if split != "test":
@@ -297,23 +406,47 @@ def create_dataset(args, examples, tokenizer, split):
             return TensorDataset(all_input_ids)
 
     elif args.task == "retrieval":
-        pass
+        encode_func = partial(encode_retrieval_example, args=args, tokenizer=tokenizer, split=split)
+        features = multiprocess_encoding(encode_func, examples)
+        return RetrievalDataset(features)
 
     elif args.task == "search":
-        pass
+        encode_func = partial(encode_search_example, args=args, tokenizer=tokenizer, split=split)
+        features = multiprocess_encoding(encode_func, examples)
+        all_code_ids, all_nl_ids = [], []
+        for f in features:
+            all_code_ids.append(f.code_input_ids)
+            all_nl_ids.append(f.nl_input_ids)
+        all_code_ids = torch.tensor(all_code_ids, dtype=torch.long)
+        all_nl_ids = torch.tensor(all_nl_ids, dtype=torch.long)
+        return TensorDataset(all_code_ids, all_nl_ids)
 
     elif args.task == "cosqa":
-        pass
+        encode_func = partial(encode_cosqa_example, args, tokenizer=tokenizer, split=split)
+        features = multiprocess_encoding(encode_func, examples)
+        all_code_ids, all_nl_ids, all_labels = [], [], []
+        for f in features:
+            all_code_ids.append(f.code_input_ids)
+            all_nl_ids.append(f.nl_input_ids)
+            all_labels.append([f.label])
+        all_code_ids = torch.tensor(all_code_ids, dtype=torch.long)
+        all_nl_ids = torch.tensor(all_nl_ids, dtype=torch.long)
+        all_labels = torch.tensor(all_labels, dtype=torch.long)
+        return TensorDataset(all_code_ids, all_nl_ids, all_labels)
 
     elif args.task in ["translation", "fixing", "mutant", "assert", "summarization", "generation"]:
         encode_func = partial(encode_seq2seq_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
-        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-        if split != "test":
-            all_decoder_input_ids = torch.tensor([f.decoder_input_ids for f in features])
-            return TensorDataset(all_input_ids, all_decoder_input_ids)
-        else:
-            return TensorDataset(all_input_ids)
+        all_input_ids, all_decoder_input_ids = [], []
+        for f in features:
+            all_input_ids.append(f.input_ids)
+            all_decoder_input_ids.append(f.decoder_input_ids)
+        all_input_ids = torch.tensor(all_input_ids, dtype=torch.long)
+        all_decoder_input_ids = torch.tensor(all_decoder_input_ids, dtype=torch.long)
+        return TensorDataset(all_input_ids, all_decoder_input_ids)
 
     elif args.task == "completion":
-        pass
+        return None
+
+    else:
+        return None

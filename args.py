@@ -40,6 +40,9 @@ def add_args(parser: ArgumentParser):
     parser.add_argument("--max-source-length", type=int, default=None,
                         help="The maximum total source sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
+    parser.add_argument("--max-source-pair-length", type=int, default=None,
+                        help="The maximum total source pair sequence length after tokenization. Sequences longer "
+                             "than this will be truncated, sequences shorter will be padded.")
     parser.add_argument("--max-target-length", type=int, default=None,
                         help="The maximum total target sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
@@ -94,6 +97,7 @@ def set_task_hyper_parameters(args):
     num_epochs = 30
     batch_size = 64
     max_source_length = None
+    max_source_pair_length = None
     max_target_length = None
     learning_rate = 5e-5
     warmup_steps = 100
@@ -108,6 +112,7 @@ def set_task_hyper_parameters(args):
     elif args.task == "clone":
         num_epochs = 1
         max_source_length = 256
+        max_source_pair_length = 256
         max_target_length = 3
         patience = 2
 
@@ -180,6 +185,7 @@ def set_task_hyper_parameters(args):
         patience = 5
 
     args.max_source_length = max_source_length
+    args.max_source_pair_length = max_source_pair_length
     args.max_target_length = max_target_length
     if not args.override_params:
         args.num_epochs = num_epochs
