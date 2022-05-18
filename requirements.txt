@@ -5,3 +5,5 @@ transformers
 tqdm
 wandb
 torch
+dataclasses
+scikit-learn

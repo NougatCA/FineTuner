@@ -9,31 +9,34 @@ import numpy as np
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
 import configs
+from eval import acc_and_f1
+from utils import EarlyStopController, postprocess_results
 
 logger = logging.getLogger(__name__)
 
 
-def run_eval(args, model, tokenizer, dataloader, split):
+def run_eval(args, model, tokenizer, dataloader, split) -> dict:
     assert split in ["valid", "test"]
-
     model.eval()
-
-    results = {}
-
     eval_bar = tqdm(dataloader, total=len(dataloader), desc="Validating" if split == "valid" else "Testing")
 
     if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         preds = []
-        all_labels = []
+        golds = []
         loss_list = []
         for step, batch in enumerate(eval_bar):
             input_ids, labels = batch[0], batch[1]
             outputs = model(input_ids, labels=labels)
             loss = outputs.loss.item()
             loss_list.append(loss)
-            preds.extend(np.argmax(outputs.logits.cpu().numpy(), axis=1))
-            all_labels.extend(labels.cpu().numpy())
+            preds.extend(np.argmax(outputs.logits.cpu().tolist(), axis=1))
+            golds.extend(labels.cpu().tolist())
+        results = acc_and_f1(preds=preds, golds=golds, prefix=split)
         results[f"{split}_loss"] = np.mean(loss_list)
+        return results
+
+    elif args.task == "retrieval":
+        pass
 
 def run_fine_tune(args):
 
@@ -100,6 +103,7 @@ def run_fine_tune(args):
 
         # Only show the progress bar once on each machine.
         completed_steps = 0
+        early_stop = EarlyStopController(patience=args.patience, higher_is_better=True)
 
         for epoch in range(args.num_train_epochs):
             model.train()
@@ -112,6 +116,8 @@ def run_fine_tune(args):
                 loss = outputs.loss
                 loss = loss / args.gradient_accumulation_steps
                 args.accelerator.backward(loss)
+                if args.max_grad_norm > 0:
+                    args.accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 train_bar.set_description(f"[epoch {epoch}, loss {loss.item():.4f}]")
                 args.run.log({"train_loss": loss.item(), "epoch": epoch})
@@ -126,9 +132,25 @@ def run_fine_tune(args):
                     break
 
             if args.do_valid:
+                torch.cuda.empty_cache()
+                logger.info("Start validation")
 
+                results = run_eval(args, model, tokenizer, valid_dataloader, "valid")
+                logger.info(f"Validation of epoch {epoch} finished, results:")
+                result_table, major_score = postprocess_results(results, major_metric=args.major_metric)
+                logger.info(result_table)
 
+                early_stop(score=major_score, model=model, epoch=epoch)
+                if not early_stop.hit:
+                    logger.info(f"Early stopping counter: {early_stop.counter}/{early_stop.patience}")
 
+            if early_stop.early_stop:
+                logger.info(f"Early stopping is triggered")
+                break
 
+            torch.cuda.empty_cache()
 
+        logger.info("Training finished")
+
+        # save something
 

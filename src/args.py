@@ -59,7 +59,7 @@ def add_args(parser: ArgumentParser):
     parser.add_argument("--adam-epsilon", type=float, default=1e-8,
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--max-grad-norm", type=float, default=1.0,
-                        help="Max gradient norm.")
+                        help="Max gradient norm, 0 to disable.")
     parser.add_argument("--num-warmup-steps", type=int, default=None,
                         help="Linear warmup over warmup_steps.")
     parser.add_argument("--patience", type=int, default=None,
@@ -205,6 +205,9 @@ def set_task_hyper_parameters(args):
 
 def check_args(args):
     """Check if args values are valid, and conduct some default settings."""
+
+    # task major metric
+    args.major_metric = configs.TASK_TO_MAJOR_METRIC[args.task]
 
     # dataset
     dataset_list = configs.TASK_TO_DATASET[args.task]
