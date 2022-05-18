@@ -95,7 +95,7 @@ class RetrievalModel(PreTrainedModel):
         loss = torch.log(prob[:, 0] + 1e-10)
         loss = -loss.mean()
 
-        return {"loss": loss}
+        return {"loss": loss, "representation_vectors": vec}
 
 
 class SearchModel(PreTrainedModel):
@@ -128,10 +128,11 @@ class SearchModel(PreTrainedModel):
 
         scores = (nl_vec[:, None, :] * code_vec[None, :, :]).sum(-1)
         loss = self.loss_fct(scores, torch.arange(batch_size, device=scores.device))
-        return {"loss": loss, "code_vec": code_vec, "nl_vec": nl_vec}
+        return {"loss": loss, "code_vectors": code_vec, "nl_vectors": nl_vec}
 
 
 class CoSQAModel(PreTrainedModel):
+
     def __int__(self, args, model, tokenizer):
         super(CoSQAModel, self).__int__()
         self.args = args

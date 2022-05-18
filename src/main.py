@@ -35,8 +35,9 @@ def main():
     args.run_name = "{}_{}".format(args.run_name, time.strftime("%Y%m%d_%H%M%S", time.localtime()))
 
     # outputs and savings
-    args.output_dir = os.path.join("..", "outputs", args.run_name)   # root of outputs/savings
+    args.output_dir = os.path.join("..", "outputs", args.run_name)  # root of outputs/savings
     args.model_dir = os.path.join(args.output_dir, "models")        # dir of saving models
+    args.eval_dir = os.path.join(args.output_dir, "evaluations")    # dir of saving evaluation results
     args.run_dir = os.path.join(args.output_dir, "runs")            # dir of tracking running
     for d in [args.model_dir, args.run_dir]:
         if not os.path.exists(d):
