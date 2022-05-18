@@ -197,6 +197,8 @@ def build_model_tokenizer(args):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
     if args.model_type == 'gpt2':
         tokenizer.pad_token = tokenizer.eos_token
+    args.pad_token_id = tokenizer.pad_token_id
+
     logger.info(f"Loaded tokenizer '{tokenizer.__class__}' from '{args.tokenizer_name}', size: {len(tokenizer)}")
     logger.debug(f"Special symbols: {tokenizer.all_special_tokens}")
 
@@ -237,7 +239,9 @@ def prepare_model_kwargs(args, batch):
 
     if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         model_kwargs["input_ids"] = batch[0]
+        model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
         model_kwargs["labels"] = batch[1]
+        model_kwargs["decoder_attention_mask"] = batch[1].ne(args.pad_token_id)
 
     elif args.task == "retrieval":
         model_kwargs["input_ids"] = batch[0]
@@ -256,7 +260,9 @@ def prepare_model_kwargs(args, batch):
 
     elif args.task in configs.TASK_TYPE_TO_LIST["seq2seq"]:
         model_kwargs["input_ids"] = batch[0]
+        model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
         model_kwargs["labels"] = batch[1]
+        model_kwargs["decoder_attention_mask"] = batch[0].ne(args.pad_token_id)
 
     elif args.task == "completion":
         pass

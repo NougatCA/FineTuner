@@ -144,7 +144,21 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
                 pred_f.write(json.dumps(js) + '\n')
 
     elif args.task in configs.TASK_TYPE_TO_LIST["seq2seq"]:
-        pass
+        all_preds = []
+        all_golds = []
+        for batch in eval_bar:
+            with torch.no_grad():
+                input_ids, labels = batch
+
+                generated_tokens = args.accelerator.unwrap_model(model).generate(
+                    input_ids,
+                    attention_mask=batch["attention_mask"],
+                    **gen_kwargs,
+                )
+
+                loss = outputs.loss.mean().item()
+                loss_list.append(loss)
+
 
 
 
