@@ -48,9 +48,13 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
                 loss_list.append(loss)
 
                 if args.task == "cosqa":
-                    preds.extend(outputs.predictions.cpu().tolist())
+                    predictions = args.accelerator.gather(outputs.predictions)
+                    preds.extend(predictions.cpu().tolist())
                 else:
-                    preds.extend(np.argmax(outputs.logits.cpu().tolist(), axis=1))
+                    logits = args.acclerator.gether(outputs.logits)
+                    preds.extend(np.argmax(logits.cpu().tolist(), axis=1))
+
+                labels = args.accelerator.gether(labels)
                 golds.extend(labels.cpu().tolist())
 
                 num_examples += input_ids.size(0)
@@ -77,7 +81,8 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
 
                 loss = outputs.loss.mean().item()
                 loss_list.append(loss)
-                vectors = outputs.representation_vectors
+                vectors = args.accelerator.gather(outputs.representation_vectors)
+                labels = args.accelerator.gather(labels)
 
                 all_vectors.extend(vectors.cpu().tolist())
                 all_labels.extend(labels.cpu().tolist())
@@ -113,8 +118,8 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
 
                 loss = outputs.loss.mean().item()
                 loss_list.append(loss)
-                code_vectors = outputs.code_vectors
-                nl_vectors = outputs.nl_vectors
+                code_vectors = args.accelerator.gather(outputs.code_vectors)
+                nl_vectors = args.accelerator(outputs.nl_vectors)
 
                 all_code_vectors.extend(code_vectors.cpu().tolist())
                 all_nl_vectors.extend(nl_vectors.cpu().tolist())
@@ -149,18 +154,35 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
         for batch in eval_bar:
             with torch.no_grad():
                 input_ids, labels = batch
-
+                attention_mask = input_ids.ne(tokenizer.pad_token_id)
                 generated_tokens = args.accelerator.unwrap_model(model).generate(
                     input_ids,
-                    attention_mask=batch["attention_mask"],
-                    **gen_kwargs,
+                    attention_mask=attention_mask,
+                    max_length=args.max_target_length,
+                    num_beams=args.num_beams,
+                    early_stopping=True
                 )
+                generated_tokens = args.accelerator.pad_across_processes(generated_tokens,
+                                                                         dim=1,
+                                                                         pad_index=tokenizer.pad_token_id)
 
-                loss = outputs.loss.mean().item()
-                loss_list.append(loss)
+                generated_tokens = args.accelerator.gather(generated_tokens).cpu().numpy()
+                labels = args.accelerator.gather(labels).cpu().numpy()
 
+                decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+                decoded_golds = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
+                all_preds.extend([pred.strip() for pred in decoded_preds])
+                all_golds.extend([label.strip() for label in decoded_golds])
 
+        # compute bleu, em, rouge-l, etc.
+
+        # save predictions and golds
+        with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
+             open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
+            for pred, gold in zip(all_preds, all_golds):
+                pred_f.write(pred + "\n")
+                gold_f.write(gold + "\n")
 
     results.update({
         f"{split}_loss": np.mean(loss_list),
