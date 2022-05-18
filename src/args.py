@@ -231,3 +231,40 @@ def check_args(args):
             f"Dataset `{args.dataset}` has no subset."
         assert args.subtask in configs.DATASET_TO_SUBSET[args.dataset], \
             f"Dataset `{args.dataset}` has not subset called `{args.subset}`"
+
+    # set language
+    args.source_lang = None
+    args.target_lang = None
+    if args.dataset == "devign":
+        args.source_lang = "c"
+        args.target_lang = None
+    elif args.dataset == "bigclonebench":
+        args.source_lang = "java"
+    elif args.dataset == "exception":
+        args.source_lang = "python"
+    elif args.dataset == "poj104":
+        args.source_lang = "c"
+        args.target_lang = "c"
+    elif args.dataset == "advtest":
+        args.source_lang = "en"
+        args.target_lang = "python"
+    elif args.dataset == "cosqa":
+        args.source_lang = "python"
+        args.target_lang = "en"
+    elif args.dataset == "codetrans":
+        args.source_lang, args.target_lang = args.subtask.split("-")
+    elif args.dataset == "bfp":
+        args.source_lang = "java"
+        args.target_lang = "java"
+    elif args.dataset == "mutant":
+        args.source_lang = "java"
+        args.target_lang = "java"
+    elif args.dataset == "assert":
+        args.source_lang = "java"
+        args.target_lang = "java"
+    elif args.dataset == "codesearchnet":
+        args.source_lang = args.subtask
+        args.target_lang = "en"
+    elif args.dataset == "concode":
+        args.source_lang = "en"
+        args.target_lang = "c"

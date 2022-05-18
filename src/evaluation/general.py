@@ -32,10 +32,10 @@ def acc_and_f1(preds: List[Union[int, str]], golds: List[Union[int, str]], prefi
     p = precision_score(y_true=golds, y_pred=preds)
     r = recall_score(y_true=golds, y_pred=preds)
     return {
-        f"{prefix}_acc" if prefix else "acc": acc,
-        f"{prefix}_precision" if prefix else "precision": p,
-        f"{prefix}_recall" if prefix else "recall": r,
-        f"{prefix}_f1" if prefix else "f1": f1
+        f"{prefix}_acc" if prefix else "acc": acc * 100,
+        f"{prefix}_precision" if prefix else "precision": p * 100,
+        f"{prefix}_recall" if prefix else "recall": r * 100,
+        f"{prefix}_f1" if prefix else "f1": f1 * 100
     }
 
 
@@ -74,7 +74,7 @@ def map_score(scores, sort_ids, labels, prefix=None) -> dict:
                 ap.append((len(ap) + 1) / (j + 1))
         map_scores.append(sum(ap) / dic[label])
 
-    return {f"{prefix}_map" if prefix else "map": float(np.mean(map_scores))}
+    return {f"{prefix}_map" if prefix else "map": float(np.mean(map_scores)) * 100}
 
 
 def mrr(scores, prefix=None) -> dict:
@@ -88,4 +88,14 @@ def mrr(scores, prefix=None) -> dict:
                 rank += 1
         ranks.append(1 / rank)
 
-    return {f"{prefix}_mrr" if prefix else "mrr": float(np.mean(ranks))}
+    return {f"{prefix}_mrr" if prefix else "mrr": float(np.mean(ranks)) * 100}
+
+
+def exact_match(preds, golds, prefix) -> dict:
+    assert len(preds) == len(golds)
+    count = 0
+    for pred, gold in zip(preds, golds):
+        if pred == gold:
+            count += 1
+    avg_score = count / len(preds)
+    return {f"{prefix}_em" if prefix else "em": avg_score * 100}

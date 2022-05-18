@@ -11,7 +11,11 @@ import numpy as np
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
 import configs
-from eval import acc_and_f1, map_score, mrr
+from evaluation.general import acc_and_f1, map_score, mrr, exact_match
+from evaluation.google_bleu import google_bleu
+from evaluation.smooth_bleu import smooth_bleu
+from evaluation.rouge import rouge_l
+from evaluation.CodeBLEU.calc_code_bleu import compute_codebleu
 from utils import EarlyStopController, postprocess_results
 
 logger = logging.getLogger(__name__)
@@ -176,6 +180,13 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
                 all_golds.extend([label.strip() for label in decoded_golds])
 
         # compute bleu, em, rouge-l, etc.
+        results.update(exact_match(preds=all_preds, golds=all_golds, prefix=split))
+        results.update(google_bleu(preds=all_preds, golds=all_golds, prefix=split))
+        results.update(smooth_bleu(preds=all_preds, golds=all_golds, prefix=split))
+        results.update(rouge_l(preds=all_preds, golds=all_golds, prefix=split))
+        # TODO: detokenize from plbart
+        if args.target_lang != "en":
+            results.update(compute_codebleu())
 
         # save predictions and golds
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
