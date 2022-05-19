@@ -228,7 +228,7 @@ def load_examples(args, split, aux_data=None) -> List:
     logger.info(f"{split} data loaded, total size: {len(examples)}")
 
     # sample specific number/ratio of examples if needed
-    if args.training_sample > 0:
+    if args.training_sample is not None and args.training_sample > 0:
         if args.training_sample < 1:
             num_to_sample = int(len(examples) * args.training_sample)
             examples = random.sample(examples, num_to_sample)
@@ -308,49 +308,45 @@ def remove_special_tokens(s, tokenizer) -> str:
     return s
 
 
-def build_model_input_ids(args, source, tokenizer):
+def build_model_input_ids(source, tokenizer, max_length):
     """Builds model-specific input."""
     source = remove_special_tokens(source, tokenizer)
-    return tokenizer.encode(source, padding="max_length", max_length=args.max_source_length, truncation=True)
+    return tokenizer.encode(source, padding="max_length", max_length=max_length, truncation=True)
 
 
-def convert_code_to_input_ids(args, tokenizer, source, source_pair=None) -> List[int]:
+def convert_code_to_input_ids(source, tokenizer, max_length, source_pair=None) -> List[int]:
     """Converts code to input ids, only for code."""
-    input_ids = build_model_input_ids(args, source=source, tokenizer=tokenizer)
+    input_ids = build_model_input_ids(source=source, tokenizer=tokenizer, max_length=max_length)
     if source_pair:
-        input_pair_ids = remove_special_tokens(source_pair, tokenizer)
+        input_pair_ids = build_model_input_ids(source=source_pair, tokenizer=tokenizer, max_length=max_length)
         input_ids += input_pair_ids
     return input_ids
 
 
-def encode_classification_example(example: ClassificationExample, args, tokenizer, split) -> ClassificationInputFeature:
-    input_ids = convert_code_to_input_ids(args,
+def encode_classification_example(example: ClassificationExample, tokenizer, max_length) -> ClassificationInputFeature:
+    input_ids = convert_code_to_input_ids(source=example.source,
                                           tokenizer=tokenizer,
-                                          source=example.source,
+                                          max_length=max_length,
                                           source_pair=example.source_pair)
-    return ClassificationInputFeature(input_ids=input_ids, label=example.label if split != "test" else None)
-
-# def encode_classification_example(item) -> ClassificationInputFeature:
-#     example, args, tokenizer, split = item
-#     input_ids = convert_code_to_input_ids(args,
-#                                           tokenizer=tokenizer,
-#                                           source=example.source,
-#                                           source_pair=example.source_pair)
-#     return ClassificationInputFeature(input_ids=input_ids, label=example.label if split != "test" else None)
+    return ClassificationInputFeature(input_ids=input_ids, label=example.label)
 
 
-def encode_retrieval_example(example: RetrievalExample, args, tokenizer, split) -> RetrievalInputFeature:
-    input_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.source)
+def encode_retrieval_example(example: RetrievalExample, tokenizer, max_length) -> RetrievalInputFeature:
+    input_ids = convert_code_to_input_ids(source=example.source,
+                                          tokenizer=tokenizer,
+                                          max_length=max_length)
     return RetrievalInputFeature(input_ids=input_ids,
                                  idx=int(example.idx),
                                  label=int(example.label))
 
 
-def encode_search_example(example: SearchExample, args, tokenizer, split) -> SearchInputFeature:
-    code_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.code)
+def encode_search_example(example: SearchExample, tokenizer, max_length) -> SearchInputFeature:
+    code_ids = convert_code_to_input_ids(source=example.code,
+                                         tokenizer=tokenizer,
+                                         max_length=max_length)
     nl_ids = tokenizer.encode(example.nl,
                               padding="max_length",
-                              max_length=args.max_source_length,
+                              max_length=max_length,
                               truncation=True)
     return SearchInputFeature(code_ids=code_ids,
                               nl_ids=nl_ids,
@@ -358,11 +354,11 @@ def encode_search_example(example: SearchExample, args, tokenizer, split) -> Sea
                               idx=example.idx)
 
 
-def encode_cosqa_example(example: CoSQAExample, args, tokenizer, split) -> CoSQAInputFeature:
-    code_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.code)
+def encode_cosqa_example(example: CoSQAExample, tokenizer, max_length) -> CoSQAInputFeature:
+    code_ids = convert_code_to_input_ids(source=example.code, tokenizer=tokenizer, max_length=max_length)
     nl_ids = tokenizer.encode(example.nl,
                               padding="max_length",
-                              max_length=args.max_source_length,
+                              max_length=max_length,
                               truncation=True)
     return CoSQAInputFeature(code_ids=code_ids,
                              nl_ids=nl_ids,
@@ -370,17 +366,18 @@ def encode_cosqa_example(example: CoSQAExample, args, tokenizer, split) -> CoSQA
                              idx=example.idx)
 
 
-def encode_seq2seq_example(example: Seq2SeqExample, args, tokenizer, split) -> Seq2SeqInputFeature:
-    if args.task in ["generation"]:
+def encode_seq2seq_example(example: Seq2SeqExample, tokenizer, task, max_source_length, max_target_length) \
+        -> Seq2SeqInputFeature:
+    if task in ["generation"]:
         input_ids = tokenizer.encode(example.source,
                                      padding="max_length",
-                                     max_length=args.max_source_length,
+                                     max_length=max_source_length,
                                      truncation=True)
     else:
-        input_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.source)
+        input_ids = convert_code_to_input_ids(source=example.source, tokenizer=tokenizer, max_length=max_source_length)
     decoder_input_ids = tokenizer.encode(example.target,
                                          padding="max_length",
-                                         max_length=args.max_target_length,
+                                         max_length=max_target_length,
                                          truncation=True)
     return Seq2SeqInputFeature(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
 
@@ -394,7 +391,8 @@ def multiprocess_encoding(encode_func, examples, num_processors=None, single_thr
     processes = num_processors if num_processors else multiprocessing.cpu_count()
     if processes > 1 and not single_thread:
         with multiprocessing.Pool(processes=processes) as p:
-            features = list(tqdm(p.imap(encode_func, examples), total=len(examples), desc="Encoding"))
+            # features = list(tqdm(p.imap(encode_func, examples), total=len(examples), desc="Encoding"))
+            features = list(p.map(encode_func, tqdm(examples, total=len(examples), desc="Encoding")))
     else:
         features = [encode_func(example) for example in tqdm(examples, total=len(examples), desc="Encoding")]
     return features
@@ -407,21 +405,19 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
 
     dataset = None
     if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
-        encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_classification_example, tokenizer=tokenizer, max_length=args.max_source_length)
         features = multiprocess_encoding(encode_func, examples)
-        # items = [(example, args, tokenizer, split) for example in examples]
-        # features = multiprocess_encoding(encode_func=encode_classification_example, examples=items)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
         dataset = TensorDataset(all_input_ids, all_labels)
 
     elif args.task == "retrieval":
-        encode_func = partial(encode_retrieval_example, args=args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_retrieval_example, tokenizer=tokenizer, max_length=args.max_source_length)
         features = multiprocess_encoding(encode_func, examples)
         dataset = RetrievalDataset(features)
 
     elif args.task == "search":
-        encode_func = partial(encode_search_example, args=args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_search_example, tokenizer=tokenizer, max_length=args.max_source_length)
         features = multiprocess_encoding(encode_func, examples)
         all_code_ids, all_nl_ids = [], []
         for f in features:
@@ -432,7 +428,7 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
         dataset = TensorDataset(all_code_ids, all_nl_ids)
 
     elif args.task == "cosqa":
-        encode_func = partial(encode_cosqa_example, args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_cosqa_example, tokenizer=tokenizer, max_length=args.max_source_length)
         features = multiprocess_encoding(encode_func, examples)
         all_code_ids, all_nl_ids, all_labels = [], [], []
         for f in features:
@@ -445,7 +441,11 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
         dataset = TensorDataset(all_code_ids, all_nl_ids, all_labels)
 
     elif args.task in configs.TASK_TYPE_TO_LIST["seq2seq"]:
-        encode_func = partial(encode_seq2seq_example, args=args, tokenizer=tokenizer, split=split)
+        encode_func = partial(encode_seq2seq_example,
+                              tokenizer=tokenizer,
+                              task=args.task,
+                              max_source_length=args.max_source_length,
+                              max_target_length=args.max_target_length)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids, all_decoder_input_ids = [], []
         for f in features:

@@ -241,7 +241,6 @@ def prepare_model_kwargs(args, batch):
         model_kwargs["input_ids"] = batch[0]
         model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
         model_kwargs["labels"] = batch[1]
-        model_kwargs["decoder_attention_mask"] = batch[1].ne(args.pad_token_id)
 
     elif args.task == "retrieval":
         model_kwargs["input_ids"] = batch[0]

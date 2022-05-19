@@ -23,9 +23,9 @@ def add_args(parser: ArgumentParser):
                         help="The directory to store datasets.")
 
     # train, valid and test procedure
-    parser.add_argument("--only-test", action="store_true",
+    parser.add_argument("--only-test", action="store_true", default=False,
                         help="Whether to only perform testing procedure.")
-    parser.add_argument("--do-not-valid", action="store_true",
+    parser.add_argument("--do-not-valid", action="store_true", default=False,
                         help="Do not do validation after each epoch.")
 
     # hyper parameters
@@ -79,11 +79,9 @@ def add_args(parser: ArgumentParser):
                         help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
     # limitations
-    parser.add_argument("--max-train-steps", type=int, default=-1,
+    parser.add_argument("--max-train-steps", type=int, default=None,
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
-    parser.add_argument("--max-data-num", type=int, default=-1,
-                        help='Max number of data instances to use, -1 for full data.')
-    parser.add_argument("--training-sample", type=float, default=0,
+    parser.add_argument("--training-sample", type=float, default=None,
                         help="Whether to sample a specific ratio (when between 0 and 1) or number (when >=0) "
                              "of training instance for training.")
     parser.add_argument("--train-from-scratch", action="store_true", default=False,

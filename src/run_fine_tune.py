@@ -220,7 +220,7 @@ def run_fine_tune(args):
     # prepare data for training and validation
     if not args.only_test:
         train_examples, train_dataset, train_dataloader = prepare_data(args, split="train", tokenizer=tokenizer)
-        if args.do_not_valid:
+        if not args.do_not_valid:
             valid_examples, valid_dataset, valid_dataloader = prepare_data(args, split="valid", tokenizer=tokenizer)
 
     logger.info(f"Data is loaded and prepared")
@@ -244,14 +244,14 @@ def run_fine_tune(args):
 
         # Prepare everything with accelerator
         model, optimizer, train_dataloader = args.accelerator.prepare(model, optimizer, train_dataloader)
-        if args.do_valid:
+        if not args.do_not_valid:
             valid_dataloader = args.accelerator.prepare(valid_dataloader)
 
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
         if args.max_train_steps is None:
-            args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+            args.max_train_steps = args.num_epochs * num_update_steps_per_epoch
         else:
-            args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+            args.num_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
         # Scheduler and math around the number of training steps
         lr_scheduler = get_scheduler(
@@ -265,8 +265,8 @@ def run_fine_tune(args):
 
         logger.info("***** Running training *****")
         logger.info(f"  Num examples = {len(train_dataset)}")
-        logger.info(f"  Num Epochs = {args.num_train_epochs}")
-        logger.info(f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
+        logger.info(f"  Num Epochs = {args.num_epochs}")
+        logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
         logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
         logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
         logger.info(f"  Total optimization steps = {args.max_train_steps}")
@@ -274,7 +274,7 @@ def run_fine_tune(args):
         completed_steps = 0
         early_stop = EarlyStopController(patience=args.patience, higher_is_better=True)
 
-        for epoch in range(args.num_train_epochs):
+        for epoch in range(args.num_epochs):
             model.train()
 
             train_bar = tqdm(train_dataloader, total=len(train_dataloader), desc=f"[epoch {epoch}, loss x.xxxx]")
@@ -338,7 +338,7 @@ def run_fine_tune(args):
         logger.info("End of training")
 
         # load and save the best model
-        model = early_stop.model
+        model = early_stop.best_model
         save_best_dir = os.path.join(args.model_dir, f"best_{args.major_metric}")
         unwrapped_model = args.accelerator.unwrap_model(model)
         unwrapped_model.save_pretrained(save_best_dir, save_function=args.accelerator.save)
