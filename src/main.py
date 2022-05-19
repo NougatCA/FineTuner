@@ -103,7 +103,7 @@ def main():
                                 [args.model_type, args.model, args.task_type, args.task, args.dataset, args.sub_task]
                                 if token is not None or token != ""],
                           name=args.short_run_name,
-                          mode="offline" if args.wandb_offline else "online",
+                          mode=args.wandb_mode,
                           config=vars(args))
 
     run_fine_tune(args)

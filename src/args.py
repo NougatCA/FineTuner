@@ -94,8 +94,9 @@ def add_args(parser: ArgumentParser):
     # outputs and savings
     parser.add_argument("--run-name", type=str, default=None,
                         help="Unique name of current running, will be automatically set if it is None.")
-    parser.add_argument("--wandb-offline", action="store_true", default=False,
-                        help="Set the wandb mode to offline so that the logging will not be uploaded to the server.")
+    parser.add_argument("--wandb-mode", type=str, default="online",
+                        choices=["online", "offline", "disable"],
+                        help="Set the wandb mode.")
 
 
 def set_task_hyper_parameters(args):
