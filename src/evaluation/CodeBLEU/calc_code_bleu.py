@@ -5,10 +5,10 @@
 import json
 import argparse
 
-import evaluation.CodeBLEU.bleu as bleu
-import evaluation.CodeBLEU.weighted_ngram_match as weighted_ngram_match
-import evaluation.CodeBLEU.syntax_match as syntax_match
-import evaluation.CodeBLEU.dataflow_match as dataflow_match
+import bleu as bleu
+import weighted_ngram_match as weighted_ngram_match
+import syntax_match as syntax_match
+import dataflow_match as dataflow_match
 
 from pathlib import Path
 
@@ -56,6 +56,11 @@ def compute_codebleu(hypothesis, references, lang, params='0.25,0.25,0.25,0.25')
                       + theta * dataflow_match_score
 
     return code_bleu_score, (ngram_match_score, weighted_ngram_match_score, syntax_match_score, dataflow_match_score)
+
+
+def code_bleu(preds, golds, lang, prefix=None):
+    code_bleu_score, _ = compute_codebleu(hypothesis=preds, references=golds, lang=lang)
+    return {f"{prefix}_codebleu" if prefix else "codebleu": code_bleu_score * 100}
 
 
 def main():

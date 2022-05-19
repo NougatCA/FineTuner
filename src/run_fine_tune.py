@@ -15,7 +15,7 @@ from evaluation.general import acc_and_f1, map_score, mrr, exact_match
 from evaluation.google_bleu import google_bleu
 from evaluation.smooth_bleu import smooth_bleu
 from evaluation.rouge import rouge_l
-from evaluation.CodeBLEU.calc_code_bleu import compute_codebleu
+from evaluation.CodeBLEU.calc_code_bleu import code_bleu
 from utils import EarlyStopController, postprocess_results
 
 logger = logging.getLogger(__name__)
@@ -184,9 +184,9 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
         results.update(google_bleu(preds=all_preds, golds=all_golds, prefix=split))
         results.update(smooth_bleu(preds=all_preds, golds=all_golds, prefix=split))
         results.update(rouge_l(preds=all_preds, golds=all_golds, prefix=split))
-        # TODO: detokenize from plbart
+
         if args.target_lang != "en":
-            results.update(compute_codebleu())
+            results.update(code_bleu(preds=all_preds, golds=all_golds, lang=args.target_lang, prefix=split))
 
         # save predictions and golds
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
@@ -345,6 +345,21 @@ def run_fine_tune(args):
         tokenizer.save_pretrained(save_best_dir)
         logger.info(f"The best {args.major_metric} model is saved to {save_best_dir}")
 
-        if args.do_test:
-            logger.info("=" * 20 + " TESTING " + "=" * 20)
-            torch.cuda.empty_cache()
+    if args.do_test:
+        logger.info("=" * 20 + " TESTING " + "=" * 20)
+        torch.cuda.empty_cache()
+
+        # load test data
+        logger.info(f"Start loading test data")
+        test_examples, test_dataset, test_dataloader = prepare_data(args, split="test", tokenizer=tokenizer)
+
+        test_results = run_eval(args,
+                                model=model,
+                                tokenizer=tokenizer,
+                                dataloader=test_dataloader,
+                                raw_examples=test_examples,
+                                split="test")
+        logger.info(f"End of testing, results:")
+        result_table, _ = postprocess_results(test_results, major_metric=args.major_metric)
+        logger.info(result_table)
+        args.run.log(test_results)
