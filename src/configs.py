@@ -9,25 +9,25 @@ from transformers import \
 
 
 # all tasks
-# TASK_NAME_TO_TYPE = {
-#     # classification task
-#     "defect": "classification",
-#     "clone": "classification",
-#     "exception": "classification",
-#     # retrieval task
-#     "retrieval": "retrieval",
-#     "search": "retrieval",
-#     # CoCLR training approach for CoSQA
-#     "cosqa": "coclr",
-#     # sequence-to-sequence
-#     "translation": "seq2seq",
-#     "fixing": "seq2seq",
-#     "mutant": "seq2seq",
-#     "assert": "seq2seq",
-#     "summarization": "seq2seq",
-#     "generation": "seq2seq",
-#     "completion": "casual"
-# }
+TASK_NAME_TO_TYPE = {
+    # classification task
+    "defect": "classification",
+    "clone": "classification",
+    "exception": "classification",
+    # retrieval task
+    "retrieval": "retrieval",
+    "search": "retrieval",
+    # CoCLR training approach for CoSQA
+    "cosqa": "coclr",
+    # sequence-to-sequence
+    "translation": "seq2seq",
+    "fixing": "seq2seq",
+    "mutant": "seq2seq",
+    "assert": "seq2seq",
+    "summarization": "seq2seq",
+    "generation": "seq2seq",
+    "completion": "casual"
+}
 
 # map the task type to task name
 TASK_TYPE_TO_LIST = {

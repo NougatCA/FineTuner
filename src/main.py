@@ -11,7 +11,7 @@ import numpy as np
 import wandb
 
 import configs
-from args import add_args, check_args
+from args import add_args, check_args, set_task_hyper_parameters
 from utils import get_run_name, get_short_run_name
 from run_fine_tune import run_fine_tune
 
@@ -27,6 +27,7 @@ def main():
 
     # check args
     check_args(args)
+    set_task_hyper_parameters(args)
 
     # prepare some preliminary arguments
     if args.run_name is None:
@@ -51,13 +52,13 @@ def main():
     console.setLevel(level=logging.INFO)
     logger.addHandler(console)
     # logging file
-    file = logging.FileHandler(os.path.join(args.output_root, "logging.log"))
+    file = logging.FileHandler(os.path.join(args.output_dir, "logging.log"))
     file.setLevel(level=logging.DEBUG)
     formatter = logging.Formatter("[%(asctime)s | %(filename)s | line %(lineno)d] - %(levelname)s: %(message)s")
     file.setFormatter(formatter)
     logger.addHandler(file)
 
-    logger.info("=" * 20 + "INITIALIZING" + "=" * 20)
+    logger.info("=" * 20 + " INITIALIZING " + "=" * 20)
 
     # set distribution and mixed precision, using `accelerate` package
     os.environ['TOKENIZERS_PARALLELISM'] = "false"
@@ -65,7 +66,7 @@ def main():
     if args.use_cuda:
         if args.cuda_visible_devices is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
-        args.accelerator = Accelerator(mixed_precision="fp16" if not args.no_fp16 else "no")
+        args.accelerator = Accelerator(mixed_precision=args.mixed_precision)
     else:
         args.accelerator = Accelerator(cpu=True)
     args.device = args.accelerator.device
@@ -100,8 +101,8 @@ def main():
         os.environ["WANDB_API_KEY"] = f.read().strip()
     args.run = wandb.init(project="CodePTM Evaluation",
                           tags=[token for token in
-                                [args.model_type, args.model, args.task_type, args.task, args.dataset, args.sub_task]
-                                if token is not None or token != ""],
+                                [args.model_type, args.model, args.task_type, args.task, args.dataset, args.subset]
+                                if token is not None and token != ""],
                           name=args.short_run_name,
                           mode=args.wandb_mode,
                           config=vars(args))

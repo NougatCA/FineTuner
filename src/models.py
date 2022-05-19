@@ -190,7 +190,7 @@ def build_model_tokenizer(args):
 
     # load config
     config = AutoConfig.from_pretrained(args.model_name)
-    logger.info(f"Loaded config '{config.__class__}' from '{args.model_name}'")
+    logger.info(f"Loaded config '{config.__class__.__name__}' from '{args.model_name}'")
     logger.debug(config)
 
     # load tokenizer
@@ -199,7 +199,7 @@ def build_model_tokenizer(args):
         tokenizer.pad_token = tokenizer.eos_token
     args.pad_token_id = tokenizer.pad_token_id
 
-    logger.info(f"Loaded tokenizer '{tokenizer.__class__}' from '{args.tokenizer_name}', size: {len(tokenizer)}")
+    logger.info(f"Loaded tokenizer '{tokenizer.__class__.__name__}' from '{args.tokenizer_name}', size: {len(tokenizer)}")
     logger.debug(f"Special symbols: {tokenizer.all_special_tokens}")
 
     # load unwrapped model
@@ -208,7 +208,7 @@ def build_model_tokenizer(args):
         model = model_class(config)
     else:
         model = model_class.from_pretrained(args.model_name)
-    logger.info(f"Loaded unwrapped model '{model.__class__}' from '{args.model_name}'")
+    logger.info(f"Loaded unwrapped model '{model.__class__.__name__}' from '{args.model_name}'")
 
     # wrap model
     # build seq2seq model for bert/roberta
@@ -221,13 +221,13 @@ def build_model_tokenizer(args):
         config_decoder.is_decoder = True
         config_decoder.add_cross_attention = True
         model.config.decoder_start_token_id = tokenizer.cls_token_id
-        logger.info(f"Built seq2seq model for '{model.__class__}'")
+        logger.info(f"Built seq2seq model for '{model.__class__.__name__}'")
     elif args.task in wrap_model_to_class.keys():
         logger.info(f"Trainable parameters: {human_format(count_params(model))}")
         model = wrap_model_to_class[args.task](args, model=model, tokenizer=tokenizer)
 
     model.resize_token_embeddings(len(tokenizer))
-    logger.info(f"Loaded model '{model.__class__}' from '{args.model_name}'")
+    logger.info(f"Loaded model '{model.__class__.__name__}' from '{args.model_name}'")
     logger.info(f"Trainable parameters: {human_format(count_params(model))}")
 
     return model, tokenizer

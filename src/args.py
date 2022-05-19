@@ -15,20 +15,18 @@ def add_args(parser: ArgumentParser):
     parser.add_argument("--task", type=str, default="defect",
                         choices=configs.TASK_TO_DATASET.keys(),
                         help="Task name.")
-    parser.add_argument("--dataset", type=str, default="",
+    parser.add_argument("--dataset", type=str, default=None,
                         help="Dataset name, leave empty for default.")
-    parser.add_argument("--subset", type=str, default="",
+    parser.add_argument("--subset", type=str, default=None,
                         help="The subset name, if any.")
     parser.add_argument("--data-dir", type=str, default="../datasets",
                         help="The directory to store datasets.")
 
     # train, valid and test procedure
-    parser.add_argument("--do-train", action="store_true",
-                        help="Whether to perform training procedure.")
-    parser.add_argument("--do-valid", action="store_true",
-                        help="Whether to perform validation procedure during training.")
-    parser.add_argument("--do-test", action="store_true",
-                        help="Whether to perform testing procedure.")
+    parser.add_argument("--only-test", action="store_true",
+                        help="Whether to only perform testing procedure.")
+    parser.add_argument("--do-not-valid", action="store_true",
+                        help="Do not do validation after each epoch.")
 
     # hyper parameters
     parser.add_argument("--override-params", action="store_true", default=False,
@@ -94,8 +92,8 @@ def add_args(parser: ArgumentParser):
     # outputs and savings
     parser.add_argument("--run-name", type=str, default=None,
                         help="Unique name of current running, will be automatically set if it is None.")
-    parser.add_argument("--wandb-mode", type=str, default="online",
-                        choices=["online", "offline", "disable"],
+    parser.add_argument("--wandb-mode", type=str, default="disabled",
+                        choices=["online", "offline", "disabled"],
                         help="Set the wandb mode.")
 
 
@@ -108,7 +106,7 @@ def set_task_hyper_parameters(args):
     max_source_pair_length = None
     max_target_length = None
     learning_rate = 5e-5
-    warmup_steps = 100
+    num_warmup_steps = 100
     patience = 5
 
     if args.task == "defect":
@@ -145,7 +143,7 @@ def set_task_hyper_parameters(args):
     elif args.task == "cosqa":
         num_epochs = 5
         learning_rate = 5e-6
-        warmup_steps = 500
+        num_warmup_steps = 500
         max_source_length = 256
 
     elif args.task == "translation":
@@ -200,7 +198,7 @@ def set_task_hyper_parameters(args):
         args.train_batch_size = train_batch_size
         args.eval_batch_size = eval_batch_size
         args.learning_rate = learning_rate
-        args.warmup_steps = warmup_steps
+        args.num_warmup_steps = num_warmup_steps
         args.patience = patience
 
 
@@ -209,6 +207,8 @@ def check_args(args):
 
     # task major metric
     args.major_metric = configs.TASK_TO_MAJOR_METRIC[args.task]
+    # task type
+    args.task_type = configs.TASK_NAME_TO_TYPE[args.task]
 
     # dataset
     dataset_list = configs.TASK_TO_DATASET[args.task]
@@ -224,7 +224,7 @@ def check_args(args):
             f'Dataset `{args.dataset}` is not configured as the dataset of task `{args.task}`.'
 
     # subset
-    if args.subtask is None:
+    if args.subset is None:
         assert args.dataset not in configs.DATASET_TO_SUBSET, \
             f"Please specific a subset of dataset `{args.dataset}` when it has multiple subsets."
     else:

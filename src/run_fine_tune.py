@@ -218,14 +218,14 @@ def run_fine_tune(args):
     args.run.watch(model, log_freq=10)
 
     # prepare data for training and validation
-    if args.do_train:
+    if not args.only_test:
         train_examples, train_dataset, train_dataloader = prepare_data(args, split="train", tokenizer=tokenizer)
-    if args.do_valid:
-        valid_examples, valid_dataset, valid_dataloader = prepare_data(args, split="valid", tokenizer=tokenizer)
+        if args.do_not_valid:
+            valid_examples, valid_dataset, valid_dataloader = prepare_data(args, split="valid", tokenizer=tokenizer)
 
     logger.info(f"Data is loaded and prepared")
 
-    if args.do_train:
+    if not args.only_test:
         logger.info("=" * 20 + " TRAINING " + "=" * 20)
         # Optimizer
         # Split weights in two groups, one with weight decay and the other not
@@ -301,7 +301,7 @@ def run_fine_tune(args):
                 if completed_steps >= args.max_train_steps:
                     break
 
-            if args.do_valid:
+            if not args.do_not_valid:
                 torch.cuda.empty_cache()
                 logger.info("Start validation")
 
@@ -345,21 +345,20 @@ def run_fine_tune(args):
         tokenizer.save_pretrained(save_best_dir)
         logger.info(f"The best {args.major_metric} model is saved to {save_best_dir}")
 
-    if args.do_test:
-        logger.info("=" * 20 + " TESTING " + "=" * 20)
-        torch.cuda.empty_cache()
+    logger.info("=" * 20 + " TESTING " + "=" * 20)
+    torch.cuda.empty_cache()
 
-        # load test data
-        logger.info(f"Start loading test data")
-        test_examples, test_dataset, test_dataloader = prepare_data(args, split="test", tokenizer=tokenizer)
+    # load test data
+    logger.info(f"Start loading test data")
+    test_examples, test_dataset, test_dataloader = prepare_data(args, split="test", tokenizer=tokenizer)
 
-        test_results = run_eval(args,
-                                model=model,
-                                tokenizer=tokenizer,
-                                dataloader=test_dataloader,
-                                raw_examples=test_examples,
-                                split="test")
-        logger.info(f"End of testing, results:")
-        result_table, _ = postprocess_results(test_results, major_metric=args.major_metric)
-        logger.info(result_table)
-        args.run.log(test_results)
+    test_results = run_eval(args,
+                            model=model,
+                            tokenizer=tokenizer,
+                            dataloader=test_dataloader,
+                            raw_examples=test_examples,
+                            split="test")
+    logger.info(f"End of testing, results:")
+    result_table, _ = postprocess_results(test_results, major_metric=args.major_metric)
+    logger.info(result_table)
+    args.run.log(test_results)

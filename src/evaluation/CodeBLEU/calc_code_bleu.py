@@ -5,10 +5,10 @@
 import json
 import argparse
 
-import bleu as bleu
-import weighted_ngram_match as weighted_ngram_match
-import syntax_match as syntax_match
-import dataflow_match as dataflow_match
+import evaluation.CodeBLEU.bleu as bleu
+import evaluation.CodeBLEU.weighted_ngram_match as weighted_ngram_match
+import evaluation.CodeBLEU.syntax_match as syntax_match
+import evaluation.CodeBLEU.dataflow_match as dataflow_match
 
 from pathlib import Path
 

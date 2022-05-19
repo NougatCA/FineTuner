@@ -330,6 +330,14 @@ def encode_classification_example(example: ClassificationExample, args, tokenize
                                           source_pair=example.source_pair)
     return ClassificationInputFeature(input_ids=input_ids, label=example.label if split != "test" else None)
 
+# def encode_classification_example(item) -> ClassificationInputFeature:
+#     example, args, tokenizer, split = item
+#     input_ids = convert_code_to_input_ids(args,
+#                                           tokenizer=tokenizer,
+#                                           source=example.source,
+#                                           source_pair=example.source_pair)
+#     return ClassificationInputFeature(input_ids=input_ids, label=example.label if split != "test" else None)
+
 
 def encode_retrieval_example(example: RetrievalExample, args, tokenizer, split) -> RetrievalInputFeature:
     input_ids = convert_code_to_input_ids(args, tokenizer=tokenizer, source=example.source)
@@ -401,6 +409,8 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
     if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         encode_func = partial(encode_classification_example, args=args, tokenizer=tokenizer, split=split)
         features = multiprocess_encoding(encode_func, examples)
+        # items = [(example, args, tokenizer, split) for example in examples]
+        # features = multiprocess_encoding(encode_func=encode_classification_example, examples=items)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_labels = torch.tensor([[f.label] for f in features], dtype=torch.long)
         dataset = TensorDataset(all_input_ids, all_labels)
