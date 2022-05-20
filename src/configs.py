@@ -88,7 +88,7 @@ MODEL_ID_TO_NAMES = {
     "bart": ("bart", "facebook/bart-base", "facebook/bart-base"),
     "t5": ("t5", "t5-base", "t5-base"),
     # pre-trained models of source code
-    "codebert": ("robert", "microsoft/codebert-base", "microsoft/codebert-base"),
+    "codebert": ("roberta", "microsoft/codebert-base", "microsoft/codebert-base"),
     "graphcodebert": ("roberta", "microsoft/graphcodebert-base", "microsoft/graphcodebert-base"),
     "javabert": ("bert", "CAUKiel/JavaBERT", "CAUKiel/JavaBERT"),
     "codegpt": ("gpt2", "microsoft/CodeGPT-small-java", "microsoft/CodeGPT-small-java"),
