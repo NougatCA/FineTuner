@@ -101,12 +101,11 @@ def load_examples(args, split, aux_data=None) -> List:
         with open(os.path.join(data_dir, f"{split}.jsonl"), mode="r", encoding="utf-8") as f:
             lines = f.readlines()
         for line in tqdm(lines, total=len(lines), desc=f"Loading {split} data"):
-            line = line.strip()
-            js = json.loads(line)
-            code = ' '.join(js['func'].split())
-            examples.append(ClassificationExample(idx=js['idx'],
+            js = json.loads(line.strip())
+            code = " ".join(js["func"].split())
+            examples.append(ClassificationExample(idx=js["idx"],
                                                   source=code,
-                                                  label=int(js['target'])))
+                                                  label=int(js["target"])))
     elif args.task == "clone":
         assert aux_data     # a dict map from idx to code
         with open(os.path.join(data_dir, f"{split}.txt"), mode="r", encoding="utf-8") as f:

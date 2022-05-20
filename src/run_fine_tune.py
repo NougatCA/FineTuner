@@ -21,9 +21,9 @@ from utils import EarlyStopController, postprocess_results
 logger = logging.getLogger(__name__)
 
 
-def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None) -> dict:
+def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None) -> dict:
     assert split in ["valid", "test"]
-    assert epoch or split == "test"
+    assert epoch is not None or split == "test"
     eval_bar = tqdm(dataloader, total=len(dataloader), desc="Validating" if split == "valid" else "Testing")
 
     # general statistics
@@ -55,14 +55,19 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
                     predictions = args.accelerator.gather(outputs.predictions)
                     preds.extend(predictions.cpu().tolist())
                 else:
-                    logits = args.acclerator.gether(outputs.logits)
-                    preds.extend(np.argmax(logits.cpu().tolist(), axis=1))
+                    # logits = args.accelerator.gather(outputs.logits)
+                    logits = outputs.logits
+                    pred = np.argmax(logits.cpu().numpy(), axis=1)
+                    preds.extend([p.item() for p in pred])
 
-                labels = args.accelerator.gether(labels)
-                golds.extend(labels.cpu().tolist())
+                # labels = args.accelerator.gather(labels)
+                golds.extend(labels.squeeze().cpu().tolist())
 
                 num_examples += input_ids.size(0)
                 num_steps += 1
+
+        print(preds)
+        print(golds)
 
         # compute acc, precision, recall and f1
         results.update(acc_and_f1(preds=preds, golds=golds, prefix=split))
@@ -71,8 +76,8 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
              open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
             for pred, gold in zip(preds, golds):
-                pred_f.write(f"{pred}\n")
-                gold_f.write(f"{gold}\n")
+                pred_f.write(f"{str(pred)}\n")
+                gold_f.write(f"{str(gold)}\n")
 
     elif args.task == "retrieval":
         all_vectors = []
@@ -123,7 +128,7 @@ def run_eval(args, model, tokenizer, dataloader, split, raw_examples, epoch=None
                 loss = outputs.loss.mean().item()
                 loss_list.append(loss)
                 code_vectors = args.accelerator.gather(outputs.code_vectors)
-                nl_vectors = args.accelerator(outputs.nl_vectors)
+                nl_vectors = args.accelerator.gather(outputs.nl_vectors)
 
                 all_code_vectors.extend(code_vectors.cpu().tolist())
                 all_nl_vectors.extend(nl_vectors.cpu().tolist())
@@ -277,6 +282,7 @@ def run_fine_tune(args):
         for epoch in range(args.num_epochs):
             model.train()
 
+            epoch_losses = []
             train_bar = tqdm(train_dataloader, total=len(train_dataloader), desc=f"[epoch {epoch}, loss x.xxxx]")
             for step, batch in enumerate(train_bar):
                 model_kwargs = prepare_model_kwargs(args, batch)
@@ -289,14 +295,16 @@ def run_fine_tune(args):
                 if args.max_grad_norm > 0:
                     args.accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
-                train_bar.set_description(f"[epoch {epoch}, loss {loss.item():.4f}]")
-                args.run.log({"train_loss": loss.item(), "epoch": epoch})
-
                 if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad()
                     completed_steps += 1
+
+                    epoch_losses.append(loss.item())
+                    avg_loss = np.mean(epoch_losses)
+                    train_bar.set_description(f"[epoch {epoch}, loss {avg_loss:.4f}]")
+                    args.run.log({"train_loss": avg_loss, "epoch": epoch})
 
                 if completed_steps >= args.max_train_steps:
                     break
@@ -310,7 +318,8 @@ def run_fine_tune(args):
                                    tokenizer=tokenizer,
                                    dataloader=valid_dataloader,
                                    raw_examples=valid_examples,
-                                   split="valid")
+                                   split="valid",
+                                   epoch=epoch)
                 logger.info(f"End of validation at epoch {epoch}, results:")
                 result_table, major_score = postprocess_results(results, major_metric=args.major_metric)
                 logger.info(result_table)
@@ -326,7 +335,7 @@ def run_fine_tune(args):
                 unwrapped_model = args.accelerator.unwrap_model(model)
                 unwrapped_model.save_pretrained(save_last_dir, save_function=args.accelerator.save)
                 tokenizer.save_pretrained(save_last_dir)
-                torch.save(optimizer, save_last_dir)
+                torch.save(optimizer, os.path.join(save_last_dir, "optimizer.pt"))
                 logger.info(f"The latest checkpoint is saved to {save_last_dir}")
 
             if early_stop.early_stop:

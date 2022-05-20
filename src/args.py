@@ -104,7 +104,7 @@ def set_task_hyper_parameters(args):
     max_source_pair_length = None
     max_target_length = None
     learning_rate = 5e-5
-    num_warmup_steps = 100
+    num_warmup_steps = 1000
     patience = 5
 
     if args.task == "defect":
