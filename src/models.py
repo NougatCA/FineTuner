@@ -188,8 +188,16 @@ wrap_model_to_class = {
 def build_model_tokenizer(args):
     """Builds the model and tokenizer."""
 
+    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+        if args.task == "exception":
+            num_labels = 20
+        else:
+            num_labels = 2
+    else:
+        num_labels = 1
+
     # load config
-    config = AutoConfig.from_pretrained(args.model_name)
+    config = AutoConfig.from_pretrained(args.model_name, num_labels=num_labels)
     logger.info(f"Loaded config '{config.__class__.__name__}' from '{args.model_name}'")
     logger.debug(config)
 
@@ -207,7 +215,7 @@ def build_model_tokenizer(args):
     if args.train_from_scratch:
         model = model_class(config)
     else:
-        model = model_class.from_pretrained(args.model_name)
+        model = model_class.from_pretrained(args.model_name, config=config)
     logger.info(f"Loaded unwrapped model '{model.__class__.__name__}' from '{args.model_name}'")
 
     # wrap model

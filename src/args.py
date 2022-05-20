@@ -7,7 +7,7 @@ import configs
 def add_args(parser: ArgumentParser):
 
     # model identifier
-    parser.add_argument("--model", type=str, default="roberta",
+    parser.add_argument("--model", type=str, default="codebert",
                         choices=configs.MODEL_ID_TO_NAMES.keys(),
                         help="Model identifier.")
 
@@ -68,6 +68,8 @@ def add_args(parser: ArgumentParser):
                         help="The scheduler type to use.",
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
                                  "constant", "constant_with_warmup"])
+    parser.add_argument("--label-smoothing-factor", type=float, default=0.1,
+                        help="")
 
     # environment
     parser.add_argument("--cuda-visible-devices", type=str, default=None,
