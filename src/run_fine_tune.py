@@ -49,8 +49,10 @@ def run_eval(args, model, tokenizer, dataloader, accelerator: Accelerator, raw_e
                     input_ids, labels = batch
                     outputs = model(input_ids, labels=labels)
 
-                loss = outputs.loss.mean().item()
-                loss_list.append(loss)
+                loss = outputs.loss
+                if args.num_gpus > 1:
+                    loss = loss.mean()
+                loss_list.append(loss.item())
 
                 if args.task == "cosqa":
                     predictions = accelerator.gather(outputs.predictions)
@@ -89,8 +91,10 @@ def run_eval(args, model, tokenizer, dataloader, accelerator: Accelerator, raw_e
 
                 outputs = model(input_ids, pos_input_ids, neg_input_ids, labels)
 
-                loss = outputs.loss.mean().item()
-                loss_list.append(loss)
+                loss = outputs.loss
+                if args.num_gpus > 1:
+                    loss = loss.mean()
+                loss_list.append(loss.item())
                 vectors = accelerator.gather(outputs.representation_vectors)
                 labels = accelerator.gather(labels)
 
@@ -126,8 +130,10 @@ def run_eval(args, model, tokenizer, dataloader, accelerator: Accelerator, raw_e
 
                 outputs = model(code_input_ids, nl_input_ids)
 
-                loss = outputs.loss.mean().item()
-                loss_list.append(loss)
+                loss = outputs.loss
+                if args.num_gpus > 1:
+                    loss = loss.mean()
+                loss_list.append(loss.item())
                 code_vectors = accelerator.gather(outputs.code_vectors)
                 nl_vectors = accelerator.gather(outputs.nl_vectors)
 
@@ -305,9 +311,10 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                 if labels is not None:
                     loss = label_smoother(outputs, labels)
                 else:
-                    # We don't use .loss here since the model may return tuples instead of ModelOutput.
                     loss = outputs.loss
 
+                if args.num_gpus > 1:
+                    loss = loss.mean()
                 # loss = outputs.loss
                 loss = loss / args.gradient_accumulation_steps
                 accelerator.backward(loss)
