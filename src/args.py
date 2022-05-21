@@ -69,7 +69,7 @@ def add_args(parser: ArgumentParser):
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
                                  "constant", "constant_with_warmup"])
     parser.add_argument("--label-smoothing-factor", type=float, default=0.1,
-                        help="")
+                        help="Label smoothing factor.")
 
     # environment
     parser.add_argument("--cuda-visible-devices", type=str, default=None,

@@ -7,6 +7,7 @@ import logging
 import math
 from tqdm import tqdm
 import numpy as np
+from accelerate import Accelerator
 
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
@@ -16,12 +17,12 @@ from evaluation.google_bleu import google_bleu
 from evaluation.smooth_bleu import smooth_bleu
 from evaluation.rouge import rouge_l
 from evaluation.CodeBLEU.calc_code_bleu import code_bleu
-from utils import EarlyStopController, postprocess_results
+from utils import EarlyStopController, LabelSmoother, postprocess_results
 
 logger = logging.getLogger(__name__)
 
 
-def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None) -> dict:
+def run_eval(args, model, tokenizer, dataloader, accelerator: Accelerator, raw_examples, split, epoch=None) -> dict:
     assert split in ["valid", "test"]
     assert epoch is not None or split == "test"
     eval_bar = tqdm(dataloader, total=len(dataloader), desc="Validating" if split == "valid" else "Testing")
@@ -52,15 +53,15 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
                 loss_list.append(loss)
 
                 if args.task == "cosqa":
-                    predictions = args.accelerator.gather(outputs.predictions)
+                    predictions = accelerator.gather(outputs.predictions)
                     preds.extend(predictions.cpu().tolist())
                 else:
-                    # logits = args.accelerator.gather(outputs.logits)
-                    logits = outputs.logits
+                    logits = accelerator.gather(outputs.logits)
+                    # logits = outputs.logits
                     pred = np.argmax(logits.cpu().numpy(), axis=1)
                     preds.extend([p.item() for p in pred])
 
-                # labels = args.accelerator.gather(labels)
+                labels = accelerator.gather(labels)
                 golds.extend(labels.squeeze().cpu().tolist())
 
                 num_examples += input_ids.size(0)
@@ -74,7 +75,7 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
 
         # save predictions and golds
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
-             open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
+                open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
             for pred, gold in zip(preds, golds):
                 pred_f.write(f"{str(pred)}\n")
                 gold_f.write(f"{str(gold)}\n")
@@ -90,8 +91,8 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
 
                 loss = outputs.loss.mean().item()
                 loss_list.append(loss)
-                vectors = args.accelerator.gather(outputs.representation_vectors)
-                labels = args.accelerator.gather(labels)
+                vectors = accelerator.gather(outputs.representation_vectors)
+                labels = accelerator.gather(labels)
 
                 all_vectors.extend(vectors.cpu().tolist())
                 all_labels.extend(labels.cpu().tolist())
@@ -127,8 +128,8 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
 
                 loss = outputs.loss.mean().item()
                 loss_list.append(loss)
-                code_vectors = args.accelerator.gather(outputs.code_vectors)
-                nl_vectors = args.accelerator.gather(outputs.nl_vectors)
+                code_vectors = accelerator.gather(outputs.code_vectors)
+                nl_vectors = accelerator.gather(outputs.nl_vectors)
 
                 all_code_vectors.extend(code_vectors.cpu().tolist())
                 all_nl_vectors.extend(nl_vectors.cpu().tolist())
@@ -164,19 +165,19 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
             with torch.no_grad():
                 input_ids, labels = batch
                 attention_mask = input_ids.ne(tokenizer.pad_token_id)
-                generated_tokens = args.accelerator.unwrap_model(model).generate(
+                generated_tokens = accelerator.unwrap_model(model).generate(
                     input_ids,
                     attention_mask=attention_mask,
                     max_length=args.max_target_length,
                     num_beams=args.num_beams,
                     early_stopping=True
                 )
-                generated_tokens = args.accelerator.pad_across_processes(generated_tokens,
-                                                                         dim=1,
-                                                                         pad_index=tokenizer.pad_token_id)
+                generated_tokens = accelerator.pad_across_processes(generated_tokens,
+                                                                    dim=1,
+                                                                    pad_index=tokenizer.pad_token_id)
 
-                generated_tokens = args.accelerator.gather(generated_tokens).cpu().numpy()
-                labels = args.accelerator.gather(labels).cpu().numpy()
+                generated_tokens = accelerator.gather(generated_tokens).cpu().numpy()
+                labels = accelerator.gather(labels).cpu().numpy()
 
                 decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
                 decoded_golds = tokenizer.batch_decode(labels, skip_special_tokens=True)
@@ -195,7 +196,7 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
 
         # save predictions and golds
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
-             open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
+                open(os.path.join(save_dir, "golds.txt"), mode="w", encoding="utf-8") as gold_f:
             for pred, gold in zip(all_preds, all_golds):
                 pred_f.write(pred + "\n")
                 gold_f.write(gold + "\n")
@@ -213,14 +214,13 @@ def run_eval(args, model, tokenizer, dataloader, raw_examples, split, epoch=None
     return results
 
 
-def run_fine_tune(args):
-
+def run_fine_tune(args, accelerator: Accelerator, run):
     logger.info("=" * 20 + " LOADING " + "=" * 20)
 
     model, tokenizer = build_model_tokenizer(args)
 
     # watch model
-    args.run.watch(model, log_freq=10)
+    run.watch(model, log_freq=10)
 
     # prepare data for training and validation
     if not args.only_test:
@@ -248,9 +248,9 @@ def run_fine_tune(args):
         optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
 
         # Prepare everything with accelerator
-        model, optimizer, train_dataloader = args.accelerator.prepare(model, optimizer, train_dataloader)
+        model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, train_dataloader)
         if not args.do_not_valid:
-            valid_dataloader = args.accelerator.prepare(valid_dataloader)
+            valid_dataloader = accelerator.prepare(valid_dataloader)
 
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
         if args.max_train_steps is None:
@@ -266,7 +266,13 @@ def run_fine_tune(args):
             num_training_steps=args.max_train_steps,
         )
 
-        total_batch_size = args.train_batch_size * args.accelerator.num_processes * args.gradient_accumulation_steps
+        # Label smoothing
+        if args.label_smoothing_factor != 0:
+            label_smoother = LabelSmoother(epsilon=args.label_smoothing_factor)
+        else:
+            label_smoother = None
+
+        total_batch_size = args.train_batch_size * args.num_gpus * args.gradient_accumulation_steps
 
         logger.info("***** Running training *****")
         logger.info(f"  Num examples = {len(train_dataset)}")
@@ -287,13 +293,26 @@ def run_fine_tune(args):
             for step, batch in enumerate(train_bar):
                 model_kwargs = prepare_model_kwargs(args, batch)
 
+                if label_smoother is not None and \
+                        "labels" in model_kwargs and \
+                        args.task not in ["retrieval", "search", "cosqa"]:
+                    labels = model_kwargs.pop("labels")
+                else:
+                    labels = None
+
                 outputs = model(**model_kwargs)
 
-                loss = outputs.loss
+                if labels is not None:
+                    loss = label_smoother(outputs, labels)
+                else:
+                    # We don't use .loss here since the model may return tuples instead of ModelOutput.
+                    loss = outputs.loss
+
+                # loss = outputs.loss
                 loss = loss / args.gradient_accumulation_steps
-                args.accelerator.backward(loss)
+                accelerator.backward(loss)
                 if args.max_grad_norm > 0:
-                    args.accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                    accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                     optimizer.step()
@@ -317,6 +336,7 @@ def run_fine_tune(args):
                                    model=model,
                                    tokenizer=tokenizer,
                                    dataloader=valid_dataloader,
+                                   accelerator=accelerator,
                                    raw_examples=valid_examples,
                                    split="valid",
                                    epoch=epoch)
@@ -332,8 +352,8 @@ def run_fine_tune(args):
 
                 # last model
                 save_last_dir = os.path.join(args.model_dir, "latest")
-                unwrapped_model = args.accelerator.unwrap_model(model)
-                unwrapped_model.save_pretrained(save_last_dir, save_function=args.accelerator.save)
+                unwrapped_model = accelerator.unwrap_model(model)
+                unwrapped_model.save_pretrained(save_last_dir, save_function=accelerator.save)
                 tokenizer.save_pretrained(save_last_dir)
                 torch.save(optimizer, os.path.join(save_last_dir, "optimizer.pt"))
                 logger.info(f"The latest checkpoint is saved to {save_last_dir}")
@@ -349,8 +369,8 @@ def run_fine_tune(args):
         # load and save the best model
         model = early_stop.best_model
         save_best_dir = os.path.join(args.model_dir, f"best_{args.major_metric}")
-        unwrapped_model = args.accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(save_best_dir, save_function=args.accelerator.save)
+        unwrapped_model = accelerator.unwrap_model(model)
+        unwrapped_model.save_pretrained(save_best_dir, save_function=accelerator.save)
         tokenizer.save_pretrained(save_best_dir)
         logger.info(f"The best {args.major_metric} model is saved to {save_best_dir}")
 
@@ -360,11 +380,13 @@ def run_fine_tune(args):
     # load test data
     logger.info(f"Start loading test data")
     test_examples, test_dataset, test_dataloader = prepare_data(args, split="test", tokenizer=tokenizer)
+    test_dataloader = accelerator.prepare_data_loader(test_dataloader)
 
     test_results = run_eval(args,
                             model=model,
                             tokenizer=tokenizer,
                             dataloader=test_dataloader,
+                            accelerator=accelerator,
                             raw_examples=test_examples,
                             split="test")
     logger.info(f"End of testing, results:")

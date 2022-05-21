@@ -17,7 +17,6 @@ from run_fine_tune import run_fine_tune
 
 
 def main():
-
     # parse arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.register("type", "bool", lambda v: v.lower() in ["yes", "true", "t", "1", "y"])
@@ -37,9 +36,9 @@ def main():
 
     # outputs and savings
     args.output_dir = os.path.join("..", "outputs", args.run_name)  # root of outputs/savings
-    args.model_dir = os.path.join(args.output_dir, "models")        # dir of saving models
-    args.eval_dir = os.path.join(args.output_dir, "evaluations")    # dir of saving evaluation results
-    args.run_dir = os.path.join(args.output_dir, "runs")            # dir of tracking running
+    args.model_dir = os.path.join(args.output_dir, "models")  # dir of saving models
+    args.eval_dir = os.path.join(args.output_dir, "evaluations")  # dir of saving evaluation results
+    args.run_dir = os.path.join(args.output_dir, "runs")  # dir of tracking running
     for d in [args.model_dir, args.run_dir]:
         if not os.path.exists(d):
             os.makedirs(d)
@@ -66,13 +65,13 @@ def main():
     if args.use_cuda:
         if args.cuda_visible_devices is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
-        args.accelerator = Accelerator(mixed_precision=args.mixed_precision)
+        accelerator = Accelerator(mixed_precision=args.mixed_precision)
     else:
-        args.accelerator = Accelerator(cpu=True)
-    args.device = args.accelerator.device
-    args.num_gpus = args.accelerator.num_processes
+        accelerator = Accelerator(cpu=True)
+    args.device = accelerator.device
+    args.num_gpus = accelerator.num_processes
 
-    logger.info(args.accelerator.state)
+    logger.info(accelerator.state)
 
     # set random seed
     if args.random_seed > 0:
@@ -99,17 +98,16 @@ def main():
     # init wandb
     with open("../wandb_api.key", mode="r", encoding="utf-8") as f:
         os.environ["WANDB_API_KEY"] = f.read().strip()
-    args.run = wandb.init(project="CodePTM Evaluation",
-                          tags=[token for token in
-                                [args.model_type, args.model, args.task_type, args.task, args.dataset, args.subset]
-                                if token is not None and token != ""],
-                          name=args.short_run_name,
-                          mode=args.wandb_mode,
-                          config=vars(args))
+    run = wandb.init(project="CodePTM Evaluation",
+                     tags=[token for token in
+                           [args.model_type, args.model, args.task_type, args.task, args.dataset, args.subset]
+                           if token is not None and token != ""],
+                     name=args.short_run_name,
+                     mode=args.wandb_mode,
+                     config=vars(args))
 
-    run_fine_tune(args)
+    run_fine_tune(args, accelerator, run)
 
 
 if __name__ == "__main__":
-
     main()
