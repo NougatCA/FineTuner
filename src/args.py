@@ -19,80 +19,80 @@ def add_args(parser: ArgumentParser):
                         help="Dataset name, leave empty for default.")
     parser.add_argument("--subset", type=str, default=None,
                         help="The subset name, if any.")
-    parser.add_argument("--data-dir", type=str, default="../datasets",
+    parser.add_argument("--data_dir", type=str, default="../datasets",
                         help="The directory to store datasets.")
 
     # train, valid and test procedure
-    parser.add_argument("--only-test", action="store_true", default=False,
+    parser.add_argument("--only_test", action="store_true", default=False,
                         help="Whether to only perform testing procedure.")
-    parser.add_argument("--do-not-valid", action="store_true", default=False,
+    parser.add_argument("--do_not_valid", action="store_true", default=False,
                         help="Do not do validation after each epoch.")
 
     # hyper parameters
-    parser.add_argument("--override-params", action="store_true", default=False,
+    parser.add_argument("--override_params", action="store_true", default=False,
                         help="Override pre-defined task-specific hyperparameter settings.")
-    parser.add_argument("--num-epochs", type=int, default=None,
+    parser.add_argument("--num_epochs", type=int, default=None,
                         help="Number of total training epochs.")
-    parser.add_argument("--train-batch-size", type=int, default=None,
+    parser.add_argument("--train_batch_size", type=int, default=None,
                         help="Size of training batch, per device.")
-    parser.add_argument("--eval-batch-size", type=int, default=None,
+    parser.add_argument("--eval_batch_size", type=int, default=None,
                         help="Size of validation/testing batch, per device.")
-    parser.add_argument("--max-source-length", type=int, default=None,
+    parser.add_argument("--max_source_length", type=int, default=None,
                         help="The maximum total source sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
-    parser.add_argument("--max-source-pair-length", type=int, default=None,
+    parser.add_argument("--max_source_pair_length", type=int, default=None,
                         help="The maximum total source pair sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
-    parser.add_argument("--max-target-length", type=int, default=None,
+    parser.add_argument("--max_target_length", type=int, default=None,
                         help="The maximum total target sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
-    parser.add_argument('--gradient-accumulation-steps', type=int, default=1,
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
-    parser.add_argument("--learning-rate", type=float, default=5e-5,
+    parser.add_argument("--learning_rate", type=float, default=5e-5,
                         help="The initial learning rate for Adam.")
-    parser.add_argument("--beam-size", type=int, default=5,
+    parser.add_argument("--beam_size", type=int, default=5,
                         help="beam size for beam search.")
-    parser.add_argument("--weight-decay", type=float, default=0.0,
+    parser.add_argument("--weight_decay", type=float, default=0.0,
                         help="Weight deay if we apply some.")
-    parser.add_argument("--adam-epsilon", type=float, default=1e-8,
+    parser.add_argument("--adam_epsilon", type=float, default=1e-8,
                         help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max-grad-norm", type=float, default=1.0,
+    parser.add_argument("--max_grad_norm", type=float, default=1.0,
                         help="Max gradient norm, 0 to disable.")
-    parser.add_argument("--num-warmup-steps", type=int, default=None,
+    parser.add_argument("--num_warmup_steps", type=int, default=None,
                         help="Linear warmup over warmup_steps.")
     parser.add_argument("--patience", type=int, default=None,
                         help="Early stopping patience.")
-    parser.add_argument("--random-seed", type=int, default=42,
+    parser.add_argument("--random_seed", type=int, default=42,
                         help="Random seed, -1 to disable.")
-    parser.add_argument("--lr-scheduler-type", type=SchedulerType, default="linear",
+    parser.add_argument("--lr_scheduler_type", type=SchedulerType, default="linear",
                         help="The scheduler type to use.",
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
                                  "constant", "constant_with_warmup"])
-    parser.add_argument("--label-smoothing-factor", type=float, default=0.1,
+    parser.add_argument("--label_smoothing_factor", type=float, default=0.1,
                         help="Label smoothing factor.")
 
     # environment
-    parser.add_argument("--cuda-visible-devices", type=str, default=None,
+    parser.add_argument("--cuda_visible_devices", type=str, default=None,
                         help='Index (Indices) of the GPU to use in a cluster.')
-    parser.add_argument("--no-cuda", action="store_true",
-                        help="Disable cuda, overrides cuda-visible-devices.")
-    parser.add_argument("--mixed-precision", type=str, default="fp16",
+    parser.add_argument("--no_cuda", action="store_true",
+                        help="Disable cuda, overrides cuda_visible_devices.")
+    parser.add_argument("--mixed_precision", type=str, default="fp16",
                         choices=["no", "fp16", "bf16"],
                         help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
     # limitations
-    parser.add_argument("--max-train-steps", type=int, default=None,
+    parser.add_argument("--max_train_steps", type=int, default=None,
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
-    parser.add_argument("--training-sample", type=float, default=None,
+    parser.add_argument("--training_sample", type=float, default=None,
                         help="Whether to sample a specific ratio (when between 0 and 1) or number (when >=0) "
                              "of training instance for training.")
-    parser.add_argument("--train-from-scratch", action="store_true", default=False,
+    parser.add_argument("--train_from_scratch", action="store_true", default=False,
                         help="Whether to fine-tune from scratch, will not load pre-trained models.")
 
     # outputs and savings
-    parser.add_argument("--run-name", type=str, default=None,
+    parser.add_argument("--run_name", type=str, default=None,
                         help="Unique name of current running, will be automatically set if it is None.")
-    parser.add_argument("--wandb-mode", type=str, default="online",
+    parser.add_argument("--wandb_mode", type=str, default="online",
                         choices=["online", "offline", "disabled"],
                         help="Set the wandb mode.")
 
@@ -114,6 +114,7 @@ def set_task_hyper_parameters(args):
         max_source_length = 512
         max_target_length = 3
         patience = 5
+        learning_rate = 2e-5
 
     elif args.task == "clone":
         num_epochs = 1
@@ -193,13 +194,12 @@ def set_task_hyper_parameters(args):
     args.max_source_length = max_source_length
     args.max_source_pair_length = max_source_pair_length
     args.max_target_length = max_target_length
-    if not args.override_params:
-        args.num_epochs = num_epochs
-        args.train_batch_size = train_batch_size
-        args.eval_batch_size = eval_batch_size
-        args.learning_rate = learning_rate
-        args.num_warmup_steps = num_warmup_steps
-        args.patience = patience
+    args.num_epochs = num_epochs
+    args.train_batch_size = train_batch_size
+    args.eval_batch_size = eval_batch_size
+    args.learning_rate = learning_rate
+    args.num_warmup_steps = num_warmup_steps
+    args.patience = patience
 
 
 def check_args(args):

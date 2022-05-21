@@ -254,7 +254,8 @@ def build_model_tokenizer(args):
         tokenizer.pad_token = tokenizer.eos_token
     args.pad_token_id = tokenizer.pad_token_id
 
-    logger.info(f"Loaded tokenizer '{tokenizer.__class__.__name__}' from '{args.tokenizer_name}', size: {len(tokenizer)}")
+    logger.info(f"Loaded tokenizer '{tokenizer.__class__.__name__}' from '{args.tokenizer_name}', "
+                f"size: {len(tokenizer)}")
     logger.debug(f"Special symbols: {tokenizer.all_special_tokens}")
 
     # load unwrapped model
