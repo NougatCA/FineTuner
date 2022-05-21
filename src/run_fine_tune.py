@@ -78,9 +78,6 @@ def run_eval(
                 num_examples += input_ids.size(0)
                 num_steps += 1
 
-        print(preds)
-        print(golds)
-
         # compute acc, precision, recall and f1
         results.update(acc_and_f1(preds=preds, golds=golds, prefix=split))
 

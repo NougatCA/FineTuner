@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from transformers import AutoTokenizer, AutoConfig, EncoderDecoderConfig, EncoderDecoderModel, PreTrainedModel, \
     RobertaModel, BertModel, GPT2Model, BartModel, PLBartModel, T5Model
 import logging
@@ -54,6 +55,52 @@ def prepare_input_dict_for_representation(input_ids: torch.Tensor, model_type, p
         input_dict["decoder_attention_mask"] = attention_mask
         input_dict["output_hidden_states"] = True
     return input_dict
+
+
+class RobertaClassificationHead(nn.Module):
+    """Head for sentence-level classification tasks."""
+
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        classifier_dropout = (
+            config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+        )
+        self.dropout = nn.Dropout(classifier_dropout)
+        self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
+
+    def forward(self, features, **kwargs):
+        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+        x = self.dropout(x)
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
+
+
+class BartClassificationHead(nn.Module):
+    """Head for sentence-level classification tasks."""
+
+    def __init__(
+        self,
+        input_dim: int,
+        inner_dim: int,
+        num_classes: int,
+        pooler_dropout: float,
+    ):
+        super().__init__()
+        self.dense = nn.Linear(input_dim, inner_dim)
+        self.dropout = nn.Dropout(p=pooler_dropout)
+        self.out_proj = nn.Linear(inner_dim, num_classes)
+
+    def forward(self, hidden_states: torch.Tensor):
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.dense(hidden_states)
+        hidden_states = torch.tanh(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.out_proj(hidden_states)
+        return hidden_states
 
 
 class RetrievalModel(PreTrainedModel):
@@ -216,6 +263,23 @@ def build_model_tokenizer(args):
         model = model_class(config)
     else:
         model = model_class.from_pretrained(args.model_name, config=config)
+        if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+            if args.model_type == "bert":
+                model.classifier = nn.Linear(config.hidden_size, config.num_labels)
+            elif args.model_type == "roberta":
+                model.classifier = RobertaClassificationHead(config)
+            elif args.model_type == "gpt2":
+                model.score = nn.Linear(config.n_embd, config.num_labels, bias=False)
+            elif args.model_type in ["bart", "plbart"]:
+                model.classification_head = BartClassificationHead(
+                    config.d_model,
+                    config.d_model,
+                    config.num_labels,
+                    config.classifier_dropout,
+                )
+                model.model._init_weights(model.classification_head.dense)
+                model.model._init_weights(model.classification_head.out_proj)
+
     logger.info(f"Loaded unwrapped model '{model.__class__.__name__}' from '{args.model_name}'")
 
     # wrap model
