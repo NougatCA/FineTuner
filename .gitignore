@@ -131,6 +131,7 @@ dmypy.json
 data/
 datasets/
 outputs/
+src/wandb/
 .idea/
 wandb_api.key
 src/sample.py
