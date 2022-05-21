@@ -22,7 +22,16 @@ from utils import EarlyStopController, LabelSmoother, postprocess_results
 logger = logging.getLogger(__name__)
 
 
-def run_eval(args, model, tokenizer, dataloader, accelerator: Accelerator, raw_examples, split, epoch=None) -> dict:
+def run_eval(
+        args,
+        model,
+        tokenizer,
+        dataloader,
+        accelerator: Accelerator,
+        run,
+        raw_examples,
+        split,
+        epoch=None) -> dict:
     assert split in ["valid", "test"]
     assert epoch is not None or split == "test"
     eval_bar = tqdm(dataloader, total=len(dataloader), desc="Validating" if split == "valid" else "Testing")
@@ -330,7 +339,7 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                     epoch_losses.append(loss.item())
                     avg_loss = np.mean(epoch_losses)
                     train_bar.set_description(f"[epoch {epoch}, loss {avg_loss:.4f}]")
-                    args.run.log({"train_loss": avg_loss, "epoch": epoch})
+                    run.log({"train_loss": avg_loss, "epoch": epoch})
 
                 if completed_steps >= args.max_train_steps:
                     break
@@ -344,16 +353,17 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                                    tokenizer=tokenizer,
                                    dataloader=valid_dataloader,
                                    accelerator=accelerator,
+                                   run=run,
                                    raw_examples=valid_examples,
                                    split="valid",
                                    epoch=epoch)
-                logger.info(f"End of validation at epoch {epoch}, results:")
                 result_table, major_score = postprocess_results(results, major_metric=args.major_metric)
-                logger.info(result_table)
-                args.run.log(results)
+                logger.info(f"End of validation at epoch {epoch}, results:\n{result_table}")
+                run.log(results)
+                run.log({"valid_major_score": major_score})
 
                 early_stop(score=major_score, model=model, epoch=epoch)
-                args.run.log({"early_stop_counter": early_stop.counter})
+                run.log({"early_stop_counter": early_stop.counter})
                 if not early_stop.hit:
                     logger.info(f"Early stopping counter: {early_stop.counter}/{early_stop.patience}")
 
@@ -394,9 +404,10 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                             tokenizer=tokenizer,
                             dataloader=test_dataloader,
                             accelerator=accelerator,
+                            run=run,
                             raw_examples=test_examples,
                             split="test")
-    logger.info(f"End of testing, results:")
     result_table, _ = postprocess_results(test_results, major_metric=args.major_metric)
+    logger.info(f"End of testing, results:\n{result_table}")
     logger.info(result_table)
-    args.run.log(test_results)
+    run.log(test_results)
