@@ -257,7 +257,7 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
 
         # Prepare everything with accelerator
         model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, train_dataloader)
@@ -279,10 +279,10 @@ def run_fine_tune(args, accelerator: Accelerator, run):
         )
 
         # Label smoothing
-        # if args.label_smoothing_factor != 0:
-        #     label_smoother = LabelSmoother(epsilon=args.label_smoothing_factor)
-        # else:
-        #     label_smoother = None
+        if args.label_smoothing_factor != 0:
+            label_smoother = LabelSmoother(epsilon=args.label_smoothing_factor)
+        else:
+            label_smoother = None
 
         total_batch_size = args.train_batch_size * args.num_gpus * args.gradient_accumulation_steps
 
@@ -304,20 +304,20 @@ def run_fine_tune(args, accelerator: Accelerator, run):
             for step, batch in enumerate(train_bar):
                 model_kwargs = prepare_model_kwargs(args, batch)
 
-                # if label_smoother is not None and \
-                #         "labels" in model_kwargs and \
-                #         args.task not in ["retrieval", "search", "cosqa"]:
-                #     labels = model_kwargs.pop("labels")
-                # else:
-                #     labels = None
+                if label_smoother is not None and \
+                        "labels" in model_kwargs and \
+                        args.task not in ["retrieval", "search", "cosqa"]:
+                    labels = model_kwargs.pop("labels")
+                else:
+                    labels = None
 
                 outputs = model(**model_kwargs)
 
-                # if labels is not None:
-                #     loss = label_smoother(outputs, labels)
-                # else:
-                #     loss = outputs.loss
-                loss = outputs.loss
+                if labels is not None:
+                    loss = label_smoother(outputs, labels)
+                else:
+                    loss = outputs.loss
+                # loss = outputs.loss
 
                 if args.num_gpus > 1:
                     loss = loss.mean()
