@@ -29,8 +29,6 @@ def add_args(parser: ArgumentParser):
                         help="Do not do validation after each epoch.")
 
     # hyper parameters
-    parser.add_argument("--override_params", action="store_true", default=False,
-                        help="Override pre-defined task-specific hyperparameter settings.")
     parser.add_argument("--num_epochs", type=int, default=None,
                         help="Number of total training epochs.")
     parser.add_argument("--train_batch_size", type=int, default=None,
@@ -48,7 +46,7 @@ def add_args(parser: ArgumentParser):
                              "than this will be truncated, sequences shorter will be padded.")
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
-    parser.add_argument("--learning_rate", type=float, default=5e-5,
+    parser.add_argument("--learning_rate", type=float, default=None,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--beam_size", type=int, default=5,
                         help="beam size for beam search.")
@@ -102,9 +100,9 @@ def set_task_hyper_parameters(args):
     num_epochs = 30
     train_batch_size = 32
     eval_batch_size = 32
-    max_source_length = None
-    max_source_pair_length = None
-    max_target_length = None
+    max_source_length = 256
+    max_source_pair_length = 256
+    max_target_length = 256
     learning_rate = 5e-5
     num_warmup_steps = 1000
     patience = 5
@@ -191,15 +189,24 @@ def set_task_hyper_parameters(args):
         max_target_length = 128
         patience = 5
 
-    args.max_source_length = max_source_length
-    args.max_source_pair_length = max_source_pair_length
-    args.max_target_length = max_target_length
-    args.num_epochs = num_epochs
-    args.train_batch_size = train_batch_size
-    args.eval_batch_size = eval_batch_size
-    args.learning_rate = learning_rate
-    args.num_warmup_steps = num_warmup_steps
-    args.patience = patience
+    if args.max_source_length is None:
+        args.max_source_length = max_source_length
+    if args.max_target_length is None:
+        args.max_target_length = max_target_length
+    if args.max_source_pair_length is None:
+        args.max_source_pair_length = max_source_pair_length
+    if args.num_epochs is None:
+        args.num_epochs = num_epochs
+    if args.train_batch_size is None:
+        args.train_batch_size = train_batch_size
+    if args.eval_batch_size is None:
+        args.eval_batch_size = eval_batch_size
+    if args.learning_rate is None:
+        args.learning_rate = learning_rate
+    if args.num_warmup_steps is None:
+        args.num_warmup_steps = num_warmup_steps
+    if args.patience is None:
+        args.patience = patience
 
 
 def check_args(args):

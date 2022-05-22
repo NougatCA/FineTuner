@@ -138,3 +138,16 @@ def postprocess_results(result_dict: dict, major_metric=None):
         else:
             results_table.add_row([metric, str(score)])
     return results_table, major_score
+
+
+def layer_wise_parameters(model):
+    """Returns a printable table representing the layer-wise model parameters, their shapes and numbers"""
+    table = PrettyTable()
+    table.field_names = ["Layer Name", "Output Shape", "Param #"]
+    table.align["Layer Name"] = "l"
+    table.align["Output Shape"] = "r"
+    table.align["Param #"] = "r"
+    for name, parameters in model.named_parameters():
+        if parameters.requires_grad:
+            table.add_row([name, str(list(parameters.shape)), parameters.numel()])
+    return table

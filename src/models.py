@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, AutoConfig, EncoderDecoderConfig, Encode
 import logging
 
 import configs
-from utils import human_format
+from utils import human_format, layer_wise_parameters
 
 
 logger = logging.getLogger(__name__)
@@ -268,7 +268,8 @@ def build_model_tokenizer(args):
             if args.model_type == "bert":
                 model.classifier = nn.Linear(config.hidden_size, config.num_labels)
             elif args.model_type == "roberta":
-                model.classifier = RobertaClassificationHead(config)
+                model.classifier = nn.Linear(config.hidden_size, config.num_labels)
+                # model.classifier = RobertaClassificationHead(config)
             elif args.model_type == "gpt2":
                 model.score = nn.Linear(config.n_embd, config.num_labels, bias=False)
             elif args.model_type in ["bart", "plbart"]:
@@ -302,6 +303,7 @@ def build_model_tokenizer(args):
     model.resize_token_embeddings(len(tokenizer))
     logger.info(f"Loaded model '{model.__class__.__name__}' from '{args.model_name}'")
     logger.info(f"Trainable parameters: {human_format(count_params(model))}")
+    logger.debug(f"Layer-wise parameters:\n{layer_wise_parameters(model)}")
 
     return model, tokenizer
 
