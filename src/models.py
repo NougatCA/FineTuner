@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoConfig, EncoderDecoderConfig, EncoderDecoderModel, PreTrainedModel, \
-    RobertaModel, BertModel, GPT2Model, BartModel, PLBartModel, T5Model
+    RobertaModel, BertModel, GPT2Model, BartModel, PLBartModel, T5Model, PreTrainedTokenizer
 import logging
+from prettytable import PrettyTable
 
 import configs
-from utils import human_format, layer_wise_parameters
+from utils import human_format
 
 
 logger = logging.getLogger(__name__)
@@ -57,24 +58,46 @@ def prepare_input_dict_for_representation(input_ids: torch.Tensor, model_type, p
     return input_dict
 
 
+# class RobertaClassificationHead(nn.Module):
+#     """Head for sentence-level classification tasks."""
+#
+#     def __init__(self, config):
+#         super().__init__()
+#         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+#         classifier_dropout = (
+#             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+#         )
+#         self.dropout = nn.Dropout(classifier_dropout)
+#         self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
+#
+#     def forward(self, features, **kwargs):
+#         x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+#         x = self.dropout(x)
+#         x = self.dense(x)
+#         x = torch.tanh(x)
+#         x = self.dropout(x)
+#         x = self.out_proj(x)
+#         return x
+
+
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
 
     def __init__(self, config):
         super().__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        classifier_dropout = (
-            config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
-        )
-        self.dropout = nn.Dropout(classifier_dropout)
+        # self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        # classifier_dropout = (
+        #     config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+        # )
+        # self.dropout = nn.Dropout(classifier_dropout)
         self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, features, **kwargs):
         x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
-        x = self.dropout(x)
-        x = self.dense(x)
-        x = torch.tanh(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
+        # x = self.dense(x)
+        # x = torch.tanh(x)
+        # x = self.dropout(x)
         x = self.out_proj(x)
         return x
 
@@ -225,6 +248,19 @@ def count_params(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
+def layer_wise_parameters(model):
+    """Returns a printable table representing the layer-wise model parameters, their shapes and numbers"""
+    table = PrettyTable()
+    table.field_names = ["Layer Name", "Output Shape", "Param #"]
+    table.align["Layer Name"] = "l"
+    table.align["Output Shape"] = "r"
+    table.align["Param #"] = "r"
+    for name, parameters in model.named_parameters():
+        if parameters.requires_grad:
+            table.add_row([name, str(list(parameters.shape)), parameters.numel()])
+    return table
+
+
 wrap_model_to_class = {
     "retrieval": RetrievalModel,
     "search": SearchModel,
@@ -232,7 +268,7 @@ wrap_model_to_class = {
 }
 
 
-def build_model_tokenizer(args):
+def build_model_tokenizer(args) -> (PreTrainedModel, PreTrainedTokenizer):
     """Builds the model and tokenizer."""
 
     if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
@@ -268,8 +304,7 @@ def build_model_tokenizer(args):
             if args.model_type == "bert":
                 model.classifier = nn.Linear(config.hidden_size, config.num_labels)
             elif args.model_type == "roberta":
-                model.classifier = nn.Linear(config.hidden_size, config.num_labels)
-                # model.classifier = RobertaClassificationHead(config)
+                model.classifier = RobertaClassificationHead(config)
             elif args.model_type == "gpt2":
                 model.score = nn.Linear(config.n_embd, config.num_labels, bias=False)
             elif args.model_type in ["bart", "plbart"]:

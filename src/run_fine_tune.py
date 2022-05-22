@@ -279,10 +279,10 @@ def run_fine_tune(args, accelerator: Accelerator, run):
         )
 
         # Label smoothing
-        if args.label_smoothing_factor != 0:
-            label_smoother = LabelSmoother(epsilon=args.label_smoothing_factor)
-        else:
-            label_smoother = None
+        # if args.label_smoothing_factor != 0:
+        #     label_smoother = LabelSmoother(epsilon=args.label_smoothing_factor)
+        # else:
+        #     label_smoother = None
 
         total_batch_size = args.train_batch_size * args.num_gpus * args.gradient_accumulation_steps
 
@@ -300,24 +300,24 @@ def run_fine_tune(args, accelerator: Accelerator, run):
         for epoch in range(args.num_epochs):
             model.train()
 
-            epoch_losses = []
             train_bar = tqdm(train_dataloader, total=len(train_dataloader), desc=f"[epoch {epoch}, loss x.xxxx]")
             for step, batch in enumerate(train_bar):
                 model_kwargs = prepare_model_kwargs(args, batch)
 
-                if label_smoother is not None and \
-                        "labels" in model_kwargs and \
-                        args.task not in ["retrieval", "search", "cosqa"]:
-                    labels = model_kwargs.pop("labels")
-                else:
-                    labels = None
+                # if label_smoother is not None and \
+                #         "labels" in model_kwargs and \
+                #         args.task not in ["retrieval", "search", "cosqa"]:
+                #     labels = model_kwargs.pop("labels")
+                # else:
+                #     labels = None
 
                 outputs = model(**model_kwargs)
 
-                if labels is not None:
-                    loss = label_smoother(outputs, labels)
-                else:
-                    loss = outputs.loss
+                # if labels is not None:
+                #     loss = label_smoother(outputs, labels)
+                # else:
+                #     loss = outputs.loss
+                loss = outputs.loss
 
                 if args.num_gpus > 1:
                     loss = loss.mean()
@@ -333,16 +333,13 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                     optimizer.zero_grad()
                     completed_steps += 1
 
-                    epoch_losses.append(loss.item())
-                    avg_loss = np.mean(epoch_losses)
-                    train_bar.set_description(f"[epoch {epoch}, loss {avg_loss:.4f}]")
-                    run.log({"train_loss": avg_loss, "epoch": epoch})
+                    train_bar.set_description(f"[epoch {epoch}, loss {loss.item():.4f}]")
+                    run.log({"train_loss": loss.item(), "epoch": epoch})
 
                 if completed_steps >= args.max_train_steps:
                     break
 
             if not args.do_not_valid:
-                torch.cuda.empty_cache()
                 logger.info("Start validation")
 
                 results = run_eval(args,
@@ -361,32 +358,39 @@ def run_fine_tune(args, accelerator: Accelerator, run):
 
                 early_stop(score=major_score, model=model, epoch=epoch)
                 run.log({"early_stop_counter": early_stop.counter})
+                # save the best model
+                if early_stop.hit:
+                    save_best_dir = os.path.join(args.model_dir, f"best_{args.major_metric}")
+                    accelerator.wait_for_everyone()
+                    unwrapped_model = accelerator.unwrap_model(model)
+                    unwrapped_model.save_pretrained(save_best_dir, save_function=accelerator.save)
+                    tokenizer.save_pretrained(save_best_dir)
+                    logger.info(f"The best {args.major_metric} model is saved to {save_best_dir}")
                 if not early_stop.hit:
                     logger.info(f"Early stopping counter: {early_stop.counter}/{early_stop.patience}")
 
                 # last model
                 save_last_dir = os.path.join(args.model_dir, "latest")
+                accelerator.wait_for_everyone()
                 unwrapped_model = accelerator.unwrap_model(model)
                 unwrapped_model.save_pretrained(save_last_dir, save_function=accelerator.save)
                 tokenizer.save_pretrained(save_last_dir)
                 torch.save(optimizer, os.path.join(save_last_dir, "optimizer.pt"))
                 logger.info(f"The latest checkpoint is saved to {save_last_dir}")
 
+                model.train()
+
             if early_stop.early_stop:
                 logger.info(f"Early stopping is triggered")
                 break
 
-            torch.cuda.empty_cache()
-
         logger.info("End of training")
 
-        # load and save the best model
-        model = early_stop.best_model
-        save_best_dir = os.path.join(args.model_dir, f"best_{args.major_metric}")
+        # load the best model
+        best_model_path = os.path.join(args.model_dir, f"best_{args.major_metric}", "pytorch_model.bin")
         unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(save_best_dir, save_function=accelerator.save)
-        tokenizer.save_pretrained(save_best_dir)
-        logger.info(f"The best {args.major_metric} model is saved to {save_best_dir}")
+        unwrapped_model.load_state_dict(torch.load(best_model_path))
+        logger.info(f"Loaded the best {args.major_metric} model from {best_model_path}")
 
     logger.info("=" * 20 + " TESTING " + "=" * 20)
     torch.cuda.empty_cache()
@@ -394,7 +398,7 @@ def run_fine_tune(args, accelerator: Accelerator, run):
     # load test data
     logger.info(f"Start loading test data")
     test_examples, test_dataset, test_dataloader = prepare_data(args, split="test", tokenizer=tokenizer)
-    test_dataloader = accelerator.prepare_data_loader(test_dataloader)
+    model, test_dataloader = accelerator.prepare(model, test_dataloader)
 
     test_results = run_eval(args,
                             model=model,
@@ -406,5 +410,4 @@ def run_fine_tune(args, accelerator: Accelerator, run):
                             split="test")
     result_table, _ = postprocess_results(test_results, major_metric=args.major_metric)
     logger.info(f"End of testing, results:\n{result_table}")
-    logger.info(result_table)
     run.log(test_results)

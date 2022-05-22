@@ -74,7 +74,7 @@ def add_args(parser: ArgumentParser):
                         help='Index (Indices) of the GPU to use in a cluster.')
     parser.add_argument("--no_cuda", action="store_true",
                         help="Disable cuda, overrides cuda_visible_devices.")
-    parser.add_argument("--mixed_precision", type=str, default="fp16",
+    parser.add_argument("--mixed_precision", type=str, default="no",
                         choices=["no", "fp16", "bf16"],
                         help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
