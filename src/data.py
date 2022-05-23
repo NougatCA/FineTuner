@@ -409,7 +409,6 @@ def multiprocess_encoding(encode_func, examples, num_processors=None, single_thr
     processes = num_processors if num_processors else multiprocessing.cpu_count()
     if processes > 1 and not single_thread:
         with multiprocessing.Pool(processes=processes) as p:
-            # features = list(tqdm(p.imap(encode_func, examples), total=len(examples), desc="Encoding"))
             features = list(p.map(encode_func, tqdm(examples, total=len(examples), desc="Encoding")))
     else:
         features = [encode_func(example) for example in tqdm(examples, total=len(examples), desc="Encoding")]

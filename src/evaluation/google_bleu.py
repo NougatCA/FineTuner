@@ -113,7 +113,10 @@ def google_bleu(preds: list[str], golds: list[str], prefix=None):
     for pred, gold in zip(preds, golds):
         pred_tokens = pred.strip().split()
         gold_tokens = gold.strip().split()
-        score = compute_bleu([[gold_tokens]], [pred_tokens], smooth=True)[0]
+        if len(pred_tokens) * len(gold_tokens) == 0:
+            score = 1 if len(pred_tokens) == len(gold_tokens) else 0
+        else:
+            score = compute_bleu([[gold_tokens]], [pred_tokens], smooth=True)[0]
         total_score += score
 
     avg_score = total_score / len(preds)

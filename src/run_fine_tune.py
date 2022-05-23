@@ -12,7 +12,7 @@ from accelerate import Accelerator
 from models import build_model_tokenizer, prepare_model_kwargs
 from data import prepare_data
 import configs
-from evaluation.general import acc_and_f1, map_score, mrr, exact_match
+from evaluation.general import acc, p_r_f1, map_score, mrr, exact_match
 from evaluation.google_bleu import google_bleu
 from evaluation.smooth_bleu import smooth_bleu
 from evaluation.rouge import rouge_l
@@ -72,6 +72,14 @@ def run_eval(
 
                     preds.extend([pred.strip() for pred in decoded_preds])
                     golds.extend([label.strip() for label in decoded_golds])
+
+                    num_examples += input_ids.size(0)
+                    num_steps += 1
+
+            # compute acc, precision, recall and f1
+            results.update(acc(preds=preds, golds=golds, prefix=split))
+            if args.num_labels == 2:
+                results.update(p_r_f1(preds=preds, golds=golds, prefix=split, pos_label="true"))
         else:
             for batch in eval_bar:
                 with torch.no_grad():
@@ -102,8 +110,10 @@ def run_eval(
                     num_examples += input_ids.size(0)
                     num_steps += 1
 
-        # compute acc, precision, recall and f1
-        results.update(acc_and_f1(preds=preds, golds=golds, prefix=split))
+            # compute acc, precision, recall and f1
+            results.update(acc(preds=preds, golds=golds, prefix=split))
+            if args.num_labels == 2:
+                results.update(p_r_f1(preds=preds, golds=golds, prefix=split))
 
         # save predictions and golds
         with open(os.path.join(save_dir, "predictions.txt"), mode="w", encoding="utf-8") as pred_f, \
@@ -221,6 +231,9 @@ def run_eval(
                 all_preds.extend([pred.strip() for pred in decoded_preds])
                 all_golds.extend([label.strip() for label in decoded_golds])
 
+                num_examples += input_ids.size(0)
+                num_steps += 1
+
         # compute bleu, em, rouge-l, etc.
         results.update(exact_match(preds=all_preds, golds=all_golds, prefix=split))
         results.update(google_bleu(preds=all_preds, golds=all_golds, prefix=split))
@@ -237,8 +250,9 @@ def run_eval(
                 pred_f.write(pred + "\n")
                 gold_f.write(gold + "\n")
 
+    if len(loss_list) > 0:
+        results.update({f"{split}_loss": np.mean(loss_list)})
     results.update({
-        f"{split}_loss": np.mean(loss_list),
         f"{split}_num_examples": num_examples,
         f"{split}_num_steps": num_steps
     })

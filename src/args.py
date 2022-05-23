@@ -74,7 +74,7 @@ def add_args(parser: ArgumentParser):
                         help='Index (Indices) of the GPU to use in a cluster.')
     parser.add_argument("--no_cuda", action="store_true",
                         help="Disable cuda, overrides cuda_visible_devices.")
-    parser.add_argument("--mixed_precision", type=str, default="no",
+    parser.add_argument("--mixed_precision", type=str, default="fp16",
                         choices=["no", "fp16", "bf16"],
                         help="Mixed precision option, chosen from `no`, `fp16`, `bf16`")
 
@@ -239,6 +239,15 @@ def check_args(args):
             f"Dataset `{args.dataset}` has no subset."
         assert args.subset in configs.DATASET_TO_SUBSET[args.dataset], \
             f"Dataset `{args.dataset}` has not subset called `{args.subset}`"
+
+    # number of labels for classification tasks
+    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+        if args.task == "exception":
+            args.num_labels = 20
+        else:
+            args.num_labels = 2
+    else:
+        args.num_labels = 1
 
     # set language
     args.source_lang = None

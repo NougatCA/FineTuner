@@ -7,9 +7,35 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def acc_and_f1(preds: List[Union[int, str]], golds: List[Union[int, str]], prefix=None) -> dict:
+def acc(preds: List[Union[int, str]], golds: List[Union[int, str]], prefix=None) -> dict:
     """
-    Computes accuracy, precision, recall and f1 scores for predictions of classification tasks.
+        Computes accuracy for predictions of classification tasks.
+
+        Args:
+            preds (List[Union[int, str]]):
+                List of predictions, elements can be either integer or string.
+            golds (List[Union[int, str]]):
+                 List of golds, elements can be either integer or string.
+            prefix (str, optional):
+                Metric name prefix of results.
+
+        Returns:
+            results (dict):
+                A dict mapping from metric names from metric scores,
+                metrics include accuracy (acc).
+        """
+    if not isinstance(preds[0], type(golds[0])):
+        logger.warning(f"The element types of golds ({type(golds[0])}) and predictions ({type(preds[0])}) "
+                       f"is different, this will cause invalid evaluation results.")
+    acc = accuracy_score(y_true=golds, y_pred=preds)
+    return {
+        f"{prefix}_acc" if prefix else "acc": acc * 100,
+    }
+
+
+def p_r_f1(preds: List[Union[int, str]], golds: List[Union[int, str]], prefix=None, pos_label=1) -> dict:
+    """
+    Computes precision, recall and f1 scores for predictions of classification tasks.
 
     Args:
         preds (List[Union[int, str]]):
@@ -18,21 +44,21 @@ def acc_and_f1(preds: List[Union[int, str]], golds: List[Union[int, str]], prefi
              List of golds, elements can be either integer or string.
         prefix (str, optional):
             Metric name prefix of results.
+        pos_label (optional, defaults to 1):
+            The positive label, defaults to 1.
 
     Returns:
         results (dict):
             A dict mapping from metric names from metric scores,
-            metrics include accuracy (acc), precision (p), recall (r) and f1.
+            metrics include precision (p), recall (r) and f1.
     """
     if not isinstance(preds[0], type(golds[0])):
         logger.warning(f"The element types of golds ({type(golds[0])}) and predictions ({type(preds[0])}) "
                        f"is different, this will cause invalid evaluation results.")
-    acc = accuracy_score(y_true=golds, y_pred=preds)
-    f1 = f1_score(y_true=golds, y_pred=preds)
-    p = precision_score(y_true=golds, y_pred=preds)
-    r = recall_score(y_true=golds, y_pred=preds)
+    f1 = f1_score(y_true=golds, y_pred=preds, pos_label=pos_label)
+    p = precision_score(y_true=golds, y_pred=preds, pos_label=pos_label)
+    r = recall_score(y_true=golds, y_pred=preds, pos_label=pos_label)
     return {
-        f"{prefix}_acc" if prefix else "acc": acc * 100,
         f"{prefix}_precision" if prefix else "precision": p * 100,
         f"{prefix}_recall" if prefix else "recall": r * 100,
         f"{prefix}_f1" if prefix else "f1": f1 * 100
