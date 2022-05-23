@@ -131,7 +131,7 @@ def load_examples(args, split, aux_data=None) -> List:
         for idx, line in enumerate(tqdm(lines, total=len(lines), desc=f"Loading {split} data")):
             js = json.loads(line.strip())
             code = " ".join(js["function"].split())
-            target_txt = js["label"].lower()
+            target_txt = js["label"]
             examples.append(ClassificationExample(idx=str(idx),
                                                   source=code,
                                                   label=aux_data.index(target_txt),
