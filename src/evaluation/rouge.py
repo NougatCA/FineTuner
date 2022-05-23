@@ -86,4 +86,4 @@ def rouge_l(preds: list[str], golds: list[str], prefix=None):
         scores.append(score)
 
     avg_score = np.mean(scores)
-    return {f"{prefix}_rouge_l" if prefix else "rouge_l": avg_score}
+    return {f"{prefix}_rouge_l" if prefix else "rouge_l": avg_score * 100}

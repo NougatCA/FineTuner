@@ -49,7 +49,7 @@ def run_eval(
     if args.task in configs.TASK_TYPE_TO_LIST["classification"] or args.task == "cosqa":
         preds = []
         golds = []
-        if args.model in ["t5", "codet5"] and args.task != "cosqa":
+        if args.model_type in ["t5", "codet5"] and args.task != "cosqa":
             for batch in eval_bar:
                 with torch.no_grad():
                     input_ids, labels = batch

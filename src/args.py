@@ -48,7 +48,7 @@ def add_args(parser: ArgumentParser):
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", type=float, default=None,
                         help="The initial learning rate for Adam.")
-    parser.add_argument("--beam_size", type=int, default=5,
+    parser.add_argument("--num_beams", type=int, default=10,
                         help="beam size for beam search.")
     parser.add_argument("--weight_decay", type=float, default=0.0,
                         help="Weight deay if we apply some.")

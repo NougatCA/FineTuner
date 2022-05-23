@@ -73,7 +73,7 @@ TASK_TO_MAJOR_METRIC = {
     "completion": "",
     "mutant": "em",
     "assert": "em",
-    "summarization": "bleu",
+    "summarization": "smooth_bleu",
     "generation": "em"
 }
 

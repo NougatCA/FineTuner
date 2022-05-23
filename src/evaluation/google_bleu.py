@@ -108,25 +108,13 @@ def compute_bleu(reference_corpus, translation_corpus, max_order=4,
 
 
 def google_bleu(preds: list[str], golds: list[str], prefix=None):
-    # total_score = 0.0
-    preds = [pred.strip().split() for pred in preds]
-    golds = [[gold.strip().split() for gold in golds]]
 
-    avg_score = compute_bleu(golds, preds, smooth=True)[0]
+    total_score = 0.0
+    for pred, gold in zip(preds, golds):
+        pred_tokens = pred.strip().split()
+        gold_tokens = gold.strip().split()
+        score = compute_bleu([[gold_tokens]], [pred_tokens], smooth=True)[0]
+        total_score += score
 
-    # for pred, gold in zip(preds, golds):
-    #     pred_tokens = pred.strip().split()
-    #     gold_tokens = gold.strip().split()
-    #     if len(pred_tokens) * len(gold_tokens) == 0:
-    #         if len(pred_tokens) == len(gold_tokens):
-    #             score = 1
-    #         else:
-    #             score = 0
-    #     else:
-    #         score = compute_bleu([[gold_tokens]], [pred_tokens], smooth=True)[0]
-    #
-    #     total_score += score
-    #
-    # avg_score = total_score / len(preds)
-    # c_bleu = compute_bleu([[reference] for reference in references], candidates, smooth=True)[0]
+    avg_score = total_score / len(preds)
     return {f"{prefix}_google_bleu" if prefix else "google_bleu": avg_score * 100}
