@@ -49,34 +49,58 @@ def run_eval(
     if args.task in configs.TASK_TYPE_TO_LIST["classification"] or args.task == "cosqa":
         preds = []
         golds = []
-        for batch in eval_bar:
-            with torch.no_grad():
-                if args.task == "cosqa":
-                    code_input_ids, nl_input_ids, labels = batch
-                    outputs = model(code_input_ids, nl_input_ids, labels)
-                else:
+        if args.model in ["t5", "codet5"] and args.task != "cosqa":
+            for batch in eval_bar:
+                with torch.no_grad():
                     input_ids, labels = batch
-                    outputs = model(input_ids, labels=labels)
+                    attention_mask = input_ids.ne(tokenizer.pad_token_id)
+                    generated_tokens = accelerator.unwrap_model(model).generate(
+                        input_ids,
+                        attention_mask=attention_mask,
+                        max_length=args.max_target_length,
+                        num_beams=args.num_beams,
+                        early_stopping=True
+                    )
+                    generated_tokens = accelerator.pad_across_processes(generated_tokens,
+                                                                        dim=1,
+                                                                        pad_index=tokenizer.pad_token_id)
+                    generated_tokens = accelerator.gather(generated_tokens).cpu().numpy()
+                    labels = accelerator.gather(labels).cpu().numpy()
 
-                loss = outputs.loss
-                if args.num_gpus > 1:
-                    loss = loss.mean()
-                loss_list.append(loss.item())
+                    decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+                    decoded_golds = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
-                if args.task == "cosqa":
-                    predictions = accelerator.gather(outputs.predictions)
-                    preds.extend(predictions.cpu().tolist())
-                else:
-                    logits = accelerator.gather(outputs.logits)
-                    # logits = outputs.logits
-                    pred = np.argmax(logits.cpu().numpy(), axis=1)
-                    preds.extend([p.item() for p in pred])
+                    preds.extend([pred.strip() for pred in decoded_preds])
+                    golds.extend([label.strip() for label in decoded_golds])
+        else:
+            for batch in eval_bar:
+                with torch.no_grad():
+                    if args.task == "cosqa":
+                        code_input_ids, nl_input_ids, labels = batch
+                        outputs = model(code_input_ids, nl_input_ids, labels)
+                    else:
+                        input_ids, labels = batch
+                        outputs = model(input_ids, labels=labels)
 
-                labels = accelerator.gather(labels)
-                golds.extend(labels.squeeze().cpu().tolist())
+                    loss = outputs.loss
+                    if args.num_gpus > 1:
+                        loss = loss.mean()
+                    loss_list.append(loss.item())
 
-                num_examples += input_ids.size(0)
-                num_steps += 1
+                    if args.task == "cosqa":
+                        predictions = accelerator.gather(outputs.predictions)
+                        preds.extend(predictions.cpu().tolist())
+                    else:
+                        logits = accelerator.gather(outputs.logits)
+                        # logits = outputs.logits
+                        pred = np.argmax(logits.cpu().numpy(), axis=1)
+                        preds.extend([p.item() for p in pred])
+
+                    labels = accelerator.gather(labels)
+                    golds.extend(labels.squeeze().cpu().tolist())
+
+                    num_examples += input_ids.size(0)
+                    num_steps += 1
 
         # compute acc, precision, recall and f1
         results.update(acc_and_f1(preds=preds, golds=golds, prefix=split))
