@@ -24,6 +24,8 @@ class ClassificationExample:
     label: int
     # used for input-pair classification
     source_pair: str = None
+    # used for t5-based models
+    label_txt: str = None
 
 
 @dataclass
@@ -92,7 +94,7 @@ def load_examples(args, split, aux_data=None) -> List:
 
     data_dir = os.path.join(args.data_dir, args.task, args.dataset)
     if args.subset and args.task != "translation":
-        data_dir = os.path.join(args.data_dir, args.subset)
+        data_dir = os.path.join(data_dir, args.subset)
 
     logger.info(f"Start loading {split} data from {data_dir}")
 
@@ -103,9 +105,11 @@ def load_examples(args, split, aux_data=None) -> List:
         for line in tqdm(lines, total=len(lines), desc=f"Loading {split} data"):
             js = json.loads(line.strip())
             code = " ".join(js["func"].split())
+            label = int(js["target"])
             examples.append(ClassificationExample(idx=js["idx"],
                                                   source=code,
-                                                  label=int(js["target"])))
+                                                  label=label,
+                                                  label_txt="true" if label == 1 else "false"))
     elif args.task == "clone":
         assert aux_data     # a dict map from idx to code
         with open(os.path.join(data_dir, f"{split}.txt"), mode="r", encoding="utf-8") as f:
@@ -118,7 +122,8 @@ def load_examples(args, split, aux_data=None) -> List:
             examples.append(ClassificationExample(idx=str(idx),
                                                   source=aux_data[url1],
                                                   source_pair=aux_data[url2],
-                                                  label=label))
+                                                  label=label,
+                                                  label_txt="true" if label == 1 else "false"))
     elif args.task == "exception":
         assert aux_data     # a list of all types
         with open(os.path.join(data_dir, f"{split}.jsonl"), mode="r", encoding="utf-8") as f:
@@ -129,7 +134,8 @@ def load_examples(args, split, aux_data=None) -> List:
             target_txt = js["label"].lower()
             examples.append(ClassificationExample(idx=str(idx),
                                                   source=code,
-                                                  label=aux_data.index(target_txt)))
+                                                  label=aux_data.index(target_txt),
+                                                  label_txt=target_txt))
 
     elif args.task == "retrieval":
         with open(os.path.join(data_dir, f"{split}.jsonl"), mode="r", encoding="utf-8") as f:
@@ -330,6 +336,19 @@ def encode_classification_example(example: ClassificationExample, tokenizer, max
     return ClassificationInputFeature(input_ids=input_ids, label=example.label)
 
 
+def encode_t5_classification_example(example: ClassificationExample, tokenizer, max_source_length, max_target_length) \
+        -> Seq2SeqInputFeature:
+    input_ids = convert_code_to_input_ids(source=example.source,
+                                          tokenizer=tokenizer,
+                                          max_length=max_source_length,
+                                          source_pair=example.source_pair)
+    decoder_input_ids = tokenizer.encode(example.label_txt,
+                                         padding="max_length",
+                                         max_length=max_target_length,
+                                         truncation=True)
+    return Seq2SeqInputFeature(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
+
+
 def encode_retrieval_example(example: RetrievalExample, tokenizer, max_length) -> RetrievalInputFeature:
     input_ids = convert_code_to_input_ids(source=example.source,
                                           tokenizer=tokenizer,
@@ -403,7 +422,22 @@ def create_dataset(args, examples, tokenizer, split) -> Union[Dataset, None]:
     logger.info(f"Start encoding {split} data into input features")
 
     dataset = None
-    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+
+    if args.model_type in ["t5", "codet5"] and args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+        encode_func = partial(encode_t5_classification_example,
+                              tokenizer=tokenizer,
+                              max_source_length=args.max_source_length,
+                              max_target_length=args.max_target_length)
+        features = multiprocess_encoding(encode_func, examples)
+        all_input_ids, all_decoder_input_ids = [], []
+        for f in features:
+            all_input_ids.append(f.input_ids)
+            all_decoder_input_ids.append(f.decoder_input_ids)
+        all_input_ids = torch.tensor(all_input_ids, dtype=torch.long)
+        all_decoder_input_ids = torch.tensor(all_decoder_input_ids, dtype=torch.long)
+        dataset = TensorDataset(all_input_ids, all_decoder_input_ids)
+
+    elif args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         encode_func = partial(encode_classification_example, tokenizer=tokenizer, max_length=args.max_source_length)
         features = multiprocess_encoding(encode_func, examples)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)

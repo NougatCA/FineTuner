@@ -312,7 +312,7 @@ def build_model_tokenizer(args) -> (PreTrainedModel, PreTrainedTokenizer):
                     config.d_model,
                     config.d_model,
                     config.num_labels,
-                    config.classifier_dropout,
+                    config.classifier_dropout
                 )
                 model.model._init_weights(model.classification_head.dense)
                 model.model._init_weights(model.classification_head.out_proj)
@@ -347,7 +347,13 @@ def prepare_model_kwargs(args, batch):
 
     model_kwargs = {}
 
-    if args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+    if args.model_type in ["t5", "codet5"] and args.task in configs.TASK_TYPE_TO_LIST["classification"]:
+        model_kwargs["input_ids"] = batch[0]
+        model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
+        model_kwargs["labels"] = batch[1]
+        model_kwargs["decoder_attention_mask"] = batch[1].ne(args.pad_token_id)
+
+    elif args.task in configs.TASK_TYPE_TO_LIST["classification"]:
         model_kwargs["input_ids"] = batch[0]
         model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
         model_kwargs["labels"] = batch[1]
@@ -371,10 +377,9 @@ def prepare_model_kwargs(args, batch):
         model_kwargs["input_ids"] = batch[0]
         model_kwargs["attention_mask"] = batch[0].ne(args.pad_token_id)
         model_kwargs["labels"] = batch[1]
-        model_kwargs["decoder_attention_mask"] = batch[0].ne(args.pad_token_id)
+        model_kwargs["decoder_attention_mask"] = batch[1].ne(args.pad_token_id)
 
     elif args.task == "completion":
         pass
 
     return model_kwargs
-

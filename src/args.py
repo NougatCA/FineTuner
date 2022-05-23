@@ -11,7 +11,7 @@ def add_args(parser: ArgumentParser):
                         choices=configs.MODEL_ID_TO_NAMES.keys(),
                         help="Model identifier.")
 
-    # task, dataset and subtask
+    # task, dataset and subset
     parser.add_argument("--task", type=str, default="defect",
                         choices=configs.TASK_TO_DATASET.keys(),
                         help="Task name.")
@@ -66,7 +66,7 @@ def add_args(parser: ArgumentParser):
                         help="The scheduler type to use.",
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
                                  "constant", "constant_with_warmup"])
-    parser.add_argument("--label_smoothing_factor", type=float, default=0.1,
+    parser.add_argument("--label_smoothing_factor", type=float, default=0.0,
                         help="Label smoothing factor.")
 
     # environment
@@ -237,7 +237,7 @@ def check_args(args):
     else:
         assert args.dataset in configs.DATASET_TO_SUBSET, \
             f"Dataset `{args.dataset}` has no subset."
-        assert args.subtask in configs.DATASET_TO_SUBSET[args.dataset], \
+        assert args.subset in configs.DATASET_TO_SUBSET[args.dataset], \
             f"Dataset `{args.dataset}` has not subset called `{args.subset}`"
 
     # set language
@@ -260,7 +260,7 @@ def check_args(args):
         args.source_lang = "python"
         args.target_lang = "en"
     elif args.dataset == "codetrans":
-        args.source_lang, args.target_lang = args.subtask.split("-")
+        args.source_lang, args.target_lang = args.subset.split("-")
     elif args.dataset == "bfp":
         args.source_lang = "java"
         args.target_lang = "java"
@@ -271,7 +271,7 @@ def check_args(args):
         args.source_lang = "java"
         args.target_lang = "java"
     elif args.dataset == "codesearchnet":
-        args.source_lang = args.subtask
+        args.source_lang = args.subset
         args.target_lang = "en"
     elif args.dataset == "concode":
         args.source_lang = "en"
