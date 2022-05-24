@@ -153,10 +153,10 @@ def set_task_hyper_parameters(args):
 
     elif args.task == "fixing":
         num_epochs = 50
-        if args.sub_task == "small":
+        if args.subset == "small":
             max_source_length = 128
             max_target_length = 128
-        elif args.sub_task == "medium":
+        elif args.subset == "medium":
             max_source_length = 256
             max_target_length = 256
         patience = 5
@@ -169,10 +169,10 @@ def set_task_hyper_parameters(args):
 
     elif args.task == "assert":
         num_epochs = 30
-        if args.sub_task == "abs":
+        if args.subset == "abs":
             max_source_length = 512
             max_target_length = 64
-        elif args.sub_task == "raw":
+        elif args.subset == "raw":
             max_source_length = 256
             max_target_length = 32
         patience = 5
