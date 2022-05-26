@@ -32,7 +32,7 @@ TASK_NAME_TO_TYPE = {
 # map the task type to task name
 TASK_TYPE_TO_LIST = {
     "classification": ["defect", "clone", "exception"],
-    "seq2seq": ["translation", "fixing", "mutant", "assert", "summarization", "translation"]
+    "seq2seq": ["translation", "fixing", "mutant", "assert", "summarization", "generation"]
 }
 
 # map the task to datasets
