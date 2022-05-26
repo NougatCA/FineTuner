@@ -284,4 +284,4 @@ def check_args(args):
         args.target_lang = "en"
     elif args.dataset == "concode":
         args.source_lang = "en"
-        args.target_lang = "c"
+        args.target_lang = "java"
