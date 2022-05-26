@@ -270,7 +270,7 @@ def run_fine_tune(args, accelerator: Accelerator, run):
     model, tokenizer = build_model_tokenizer(args)
 
     # watch model
-    run.watch(model, log_freq=10)
+    # run.watch(model, log_freq=100)
 
     # prepare data for training and validation
     if not args.only_test:
