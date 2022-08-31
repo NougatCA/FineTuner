@@ -93,6 +93,8 @@ MODEL_ID_TO_NAMES = {
     "javabert": ("bert", "CAUKiel/JavaBERT", "CAUKiel/JavaBERT"),
     "codegpt": ("gpt2", "microsoft/CodeGPT-small-java", "microsoft/CodeGPT-small-java"),
     "codegpt-adapted": ("gpt2", "microsoft/CodeGPT-small-java-adaptedGPT2", "microsoft/CodeGPT-small-java-adaptedGPT2"),
+    "deepdebug": ("t5", "niuca/DeepDebug", "niuca/DeepDebug"),
+    "t5-learning": ("t5", "niuca/T5-learning", "niuca/T5-learning"),
     "plbart": ("plbart", "uclanlp/plbart-base", "uclanlp/plbart-base"),
     "cotext": ("t5", "razent/cotext-2-cc", "razent/cotext-2-cc"),
     "codet5": ("codet5", "Salesforce/codet5-base", "Salesforce/codet5-base"),
