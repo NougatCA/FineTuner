@@ -14,6 +14,10 @@ All pre-trained models and tokenizer can be downloaded here: [OneDrive](https://
 Very easy to use evaluation scripts have been created in `src/evaluation` with detailed comments to refer to.
 These evaluation scripts require only a python environment and several packages that can be easily installed via `pip install`.
 
+## Statistical Significance of the results reported in the paper
+
+[OneDrive](https://1drv.ms/x/s!Aj4XBdlu8BS0gf9fQrJtaHOt6q-fKQ?e=S4eE6c)
+
 ## Runs
 
 Run `main.py` to start fine-tuning and/or evaluation. 
