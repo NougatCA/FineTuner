@@ -1,5 +1,13 @@
 # FineTuner
 
+## Requirements
+
+The evaluation scripts in [`src/evaluation`](src/evaluation) and the [`src/main.py`](src/main.py) script to fine-tuning and/or start the model's evaluation require the Python packages listed in [`requirements.txt`](requirements.txt) which can be easily installed via `pip install -r requirements.txt`.
+
+### [wandb](https://wandb.ai)
+
+The [`src/main.py`](src/main.py) script requires user's [wandb](https://wandb.ai) key.  Sign up for an account at [https://wandb.ai](https://wandb.ai) and copy your user's key to `wandb_api.key` in the root directory.  In alternative, you could just `export WANDB_API_KEY=___USER_KEY__` before running the [`src/main.py`](src/main.py) script.
+
 ## Datasets
 
 All datasets can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gf9b0e1Dze2AkxsqxA?e=p0Whot).
@@ -12,7 +20,6 @@ All pre-trained models and tokenizer can be downloaded here: [OneDrive](https://
 ## Evaluation Scripts
 
 Very easy to use evaluation scripts have been created in `src/evaluation` with detailed comments to refer to.
-These evaluation scripts require only a python environment and several packages that can be easily installed via `pip install`.
 
 ## Statistical Significance of the results reported in the paper
 
