@@ -225,8 +225,8 @@ def load_examples(args, split, aux_data=None) -> List:
                 source = " ".join(js["code_tokens"])
                 target = " ".join(js["docstring_tokens"])
             else:
-                source = " ".join(js["nl"])
-                target = " ".join(js["code"])
+                source = " ".join(js["nl"].split())
+                target = " ".join(js["code"].split())
             examples.append(Seq2SeqExample(idx=str(idx),
                                            source=source,
                                            target=target))
