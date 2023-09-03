@@ -10,12 +10,12 @@ The [`src/main.py`](src/main.py) script requires user's [wandb](https://wandb.ai
 
 ## Datasets
 
-All datasets can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gf9b0e1Dze2AkxsqxA?e=p0Whot), [Zenodo](https://zenodo.org/record/8012847).
+All datasets can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gf9b0e1Dze2AkxsqxA), [Zenodo](https://zenodo.org/record/8012847).
 Extract the archive file and put the entire folder in the root directory. 
 Or you can put anywhere else and specific the path using the `--data_dir` argument.
 
 ## Pre-Trained Models and Tokenizer
-All pre-trained models and tokenizer can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gesMNftTjlqQGm64xg?e=Wru6T7), [Zenodo](https://zenodo.org/record/8012847)
+All pre-trained models and tokenizer can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gesMNftTjlqQGm64xg), [Zenodo](https://zenodo.org/record/8012847)
 
 ## Evaluation Scripts
 
