@@ -8,3 +8,4 @@ torch
 dataclasses
 scikit-learn
 tree_sitter
+sentencepiece
