@@ -129,7 +129,6 @@ dmypy.json
 .pyre/
 
 data/
-datasets/
 outputs/
 src/wandb/
 .idea/
