@@ -6,20 +6,20 @@ The evaluation scripts in [`src/evaluation`](src/evaluation) and the [`src/main.
 
 ### [wandb](https://wandb.ai)
 
-The [`src/main.py`](src/main.py) script requires user's [wandb](https://wandb.ai) key.  Sign up for an account at [https://wandb.ai](https://wandb.ai) and copy your user's key to `wandb_api.key` in the root directory.  In alternative, you could just `export WANDB_API_KEY=___USER_KEY__` before running the [`src/main.py`](src/main.py) script.
+The [`src/main.py`](src/main.py) script requires the user's [wandb](https://wandb.ai) key.  Sign up for an account at [https://wandb.ai](https://wandb.ai) and copy your user's key to `wandb_api.key` in the root directory.  In alternative, you could just `export WANDB_API_KEY=___USER_KEY__` before running the [`src/main.py`](src/main.py) script.
 
 ## Datasets
 
 All datasets can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gf9b0e1Dze2AkxsqxA), [Zenodo](https://zenodo.org/record/8012847).
 Extract the archive file and put the entire folder in the root directory. 
-Or you can put anywhere else and specific the path using the `--data_dir` argument.
+Or you can put it anywhere else and specific the path using the `--data_dir` argument.
 
 ## Pre-Trained Models and Tokenizer
 All pre-trained models and tokenizer can be downloaded here: [OneDrive](https://1drv.ms/u/s!Aj4XBdlu8BS0gesMNftTjlqQGm64xg), [Zenodo](https://zenodo.org/record/8012847)
 
 ## Evaluation Scripts
 
-Very easy to use evaluation scripts have been created in `src/evaluation` with detailed comments to refer to.
+Very easy-to-use evaluation scripts have been created in `src/evaluation` with detailed comments to refer to.
 
 ## Statistical Significance of the results reported in the paper
 
@@ -30,21 +30,21 @@ Very easy to use evaluation scripts have been created in `src/evaluation` with d
 Run `main.py` to start fine-tuning and/or evaluation. 
 All arguments are located in `args.py`, specific whatever you need.
 
-Some example scripts are as following.
+Some example scripts are as follows.
 
 ```shell
-# run defect detection task using roberta, with default hyperparameters
+# run defect detection task using Roberta, with default hyperparameters
 python main.py --model roberta --task defect
 
-# run java summarization using codet5
+# run Java summarization using codet5
 python main.py --model codet5 --task summarization --subset java
 
 # only run evaluation using specific model directory
 python main.py --model PATH_TO_MODEL --task clone --only_test
 
 # run code generation using plbart and specific some common arguments
-# all gpu devices are used by default, specific device ids by using --cuda_visible_devices, 
-# add --no_cuda to disable gpu and use cpu instead
+# all GPU devices are used by default, specific device ids by using --cuda_visible_devices, 
+# add --no_cuda to disable GPU and use CPU instead
 python main.py \
 --model plbart \
 --task generation \
